@@ -14,6 +14,7 @@ import Logic.CommandHandler
 import Network.Socket
 import Network.Socket.ByteString (recv, sendAll)
 import Storage.Storage
+import System.IO (BufferMode (NoBuffering), hPutStrLn, hSetBuffering, stderr, stdout)
 
 defaultRedisPort :: ServiceName
 defaultRedisPort = "6379"
@@ -44,7 +45,7 @@ runServer store = do
     close'' conn someExc = do
       close conn
       print someExc
-      hPutStrLn stderr  $ "Connection closed" <> show conn
+      hPutStrLn stderr $ "Connection closed" <> show conn
 
 -- | Обработка одного клиента
 handleClient :: Socket -> Storage -> IO ()
@@ -56,10 +57,10 @@ handleClient sock store = forever $ do
       case decodeRequest <$> decode msg of
         Left err -> do
           sendAll sock (encode $ ErrorString $ "decode error: " <> show err)
-          hPutStrLn stderr  $ "parse failed: " <> show msg <> "; error: " <> err
+          hPutStrLn stderr $ "parse failed: " <> show msg <> "; error: " <> err
         Right Nothing -> do
           sendAll sock (encode $ ErrorString "decode error;")
-          hPutStrLn stderr  $ "parse failed: " <> show msg <> "; error: Nope :("
+          hPutStrLn stderr $ "parse failed: " <> show msg <> "; error: Nope :("
         Right (Just req) -> do
           resp <- executeCommand store req
           sendAll sock resp
