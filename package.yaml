@@ -34,7 +34,7 @@ executables:
     main: Main.hs
     source-dirs: app
     dependencies:
-      - mini-redis
+      - codecrafters-redis
     ghc-options:
       - -rtsopts         # разрешаем RTS-флаги
       - -with-rtsopts=-N # по умолчанию использовать все ядра
