@@ -38,7 +38,7 @@ library:
       - (Relude as Prelude)
 
 executables:
-  mini-redis:
+  codecrafters-redis-exe:
     main: Main.hs
     source-dirs: app
     dependencies:
