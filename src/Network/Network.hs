@@ -24,7 +24,7 @@ runServer :: Storage -> IO ()
 runServer store = do
   addr <- resolve
   sock <- open addr
-  hPutStrLn stderr StrLn $ "Server listening on port " ++ defaultRedisPort
+  hPutStrLn stderr $ "Server listening on port " ++ defaultRedisPort
   forever $ do
     (conn, peer) <- accept sock
     -- hPutStrLn stderr  $ "Connection from " ++ show peer
