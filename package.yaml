@@ -2,6 +2,14 @@ name: codecrafters-redis
 version: 0.1.0.0
 license: BSD3
 
+
+default-extensions:
+  - OverloadedStrings
+
+ghc-options:
+  - -Wall
+  - -threaded
+
 dependencies:
   - base >= 4.19 && < 5
   - network-simple # establish a simple TCP network
