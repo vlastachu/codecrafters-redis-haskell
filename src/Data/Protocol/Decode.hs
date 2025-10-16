@@ -32,10 +32,10 @@ bulkString :: Parser RedisValue
 bulkString = do
   len <- signed decimal <* endOfLine
   if len == (-1)
-    then pure $ BulkString Nothing
+    then pure NilString
     else do
       bs <- take len <* endOfLine
-      pure $ BulkString (Just bs)
+      pure $ BulkString bs
 
 -- * 2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n  |  *-1\r\n
 
@@ -43,10 +43,10 @@ arrayValue :: Parser RedisValue
 arrayValue = do
   len <- signed decimal <* endOfLine
   if len == (-1)
-    then pure $ Array Nothing
+    then pure NilArray
     else do
       values <- count len parseRedisValue
-      pure $ Array (Just values)
+      pure $ Array values
 
 -------------------------------------------------------
 -- Обёртка вокруг parseOnly

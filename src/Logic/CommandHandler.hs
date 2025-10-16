@@ -1,15 +1,19 @@
 module Logic.CommandHandler where
 
+import Data.Maybe (Maybe (Nothing), fromMaybe)
 import Data.Request
 import Data.Response
 import Storage.Storage
 
 handleCommand :: Storage -> Request -> IO Response
 handleCommand _ Ping = pure Pong
-handleCommand _ (Echo str) = pure $ RawString $ Just str
+handleCommand _ (Echo str) = pure $ RawString str
 handleCommand store (Get key) = do
   mVal <- getValue store key
-  pure $ RawString mVal
+  pure $ maybe Nil RawString mVal
 handleCommand store (Set key val mExp) = do
   setValue store key val mExp
   pure OK
+handleCommand store (RPush key val) = do
+  len <- rpush store key val
+  pure $ RawInteger len

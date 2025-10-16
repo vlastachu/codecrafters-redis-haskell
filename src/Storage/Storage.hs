@@ -1,49 +1,55 @@
-module Storage.Storage
-  ( Storage,
-    newStorage,
-    setValue,
-    getValue,
-  )
-where
+module Storage.Storage where
 
 import Control.Concurrent
 import qualified Data.Map.Strict as M
+import Data.Sequence (Seq, (|>))
 import Data.Time.Clock
+import qualified StmContainers.Map as SM
 
 data Storage = Storage
-  { storeMap :: TVar (M.Map ByteString (ByteString, Maybe UTCTime))
+  { storeMap :: !(SM.Map ByteString (ByteString, Maybe UTCTime)),
+    storeArrayMap :: !(SM.Map ByteString (Seq ByteString))
   }
 
--- | Создать новое хранилище и кэш времени
+-- | Создать новое хранилище
 newStorage :: IO Storage
 newStorage = do
-  now <- getCurrentTime
-  storeVar <- newTVarIO M.empty
+  m <- SM.newIO
+  m2 <- SM.newIO
+  pure $ Storage m m2
 
-  pure $ Storage storeVar
-
--- | Установить ключ с значением и опциональным временем жизни (секунды)
+-- | Установить ключ с значением и опциональным временем жизни (миллисекунды)
 setValue :: Storage -> ByteString -> ByteString -> Maybe Int -> IO ()
 setValue store key val msec = do
   now <- getCurrentTime
-  let stmMap = storeMap store
-  let addMillseconds ms = addUTCTime (fromRational (toRational ms / 1000)) now
-  let expireTime = addMillseconds <$> msec
-  atomically $ modifyTVar' stmMap (M.insert key (val, expireTime))
+  let addMilliseconds ms =
+        addUTCTime (fromRational (toRational ms / 1000)) now
+  let !expireTime = addMilliseconds <$> msec
+  let !entry = (val, expireTime) -- строго
+  atomically $ SM.insert entry key (storeMap store)
 
--- | Получить значение по ключу. Возвращает Nothing, если ключ не найден или истёк.
+-- | Получить значение по ключу (Nothing, если не найдено или истекло)
 getValue :: Storage -> ByteString -> IO (Maybe ByteString)
 getValue store key = do
   now <- getCurrentTime
-  let stmMap = storeMap store
   atomically $ do
-    m <- readTVar stmMap
-    case M.lookup key m of
+    mVal <- SM.lookup key (storeMap store)
+    case mVal of
       Nothing -> pure Nothing
       Just (val, Nothing) -> pure (Just val)
       Just (val, Just expTime) ->
         if now < expTime
-          then pure (Just val)
+          then val `seq` pure (Just val)
           else do
-            modifyTVar' stmMap (M.delete key)
+            SM.delete key (storeMap store)
             pure Nothing
+
+rpush :: Storage -> ByteString -> ByteString -> IO Integer
+rpush store key val = atomically $ do
+  let arrayMap = storeArrayMap store
+  mSeq <- SM.lookup key arrayMap
+  let seqWithInserted = case mSeq of
+        Nothing -> mempty |> val
+        Just s -> s |> val
+  SM.insert seqWithInserted key arrayMap
+  pure $ toInteger $ length seqWithInserted

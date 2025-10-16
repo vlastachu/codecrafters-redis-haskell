@@ -50,6 +50,7 @@ runServer store = do
 handleClient :: Socket -> Storage -> IO ()
 handleClient sock store = forever $ do
   msg <- recv sock 4096
+  msg `seq` pure ()
   if BS.null msg
     then pure () -- hPutStrLn stderr  "Connection closed"
     else do
@@ -62,7 +63,7 @@ handleClient sock store = forever $ do
           hPutStrLn stderr $ "parse failed: " <> show msg <> "; error: Nope :("
         Right (Just req) -> do
           resp <- executeCommand store req
-          sendAll sock resp
+          resp `seq` sendAll sock resp
 
 -- | Выполнить команду и вернуть RESP-ответ
 executeCommand :: Storage -> Request -> IO BS.ByteString
