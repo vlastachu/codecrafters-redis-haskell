@@ -54,14 +54,11 @@ handleClient sock store = forever $ do
   if BS.null msg
     then pure () -- hPutStrLn stderr  "Connection closed"
     else do
-      case decodeRequest <$> decode msg of
+      case decodeRequest =<< decode msg of
         Left err -> do
           sendAll sock (encode $ ErrorString $ "decode error: " <> show err)
           hPutStrLn stderr $ "parse failed: " <> show msg <> "; error: " <> err
-        Right Nothing -> do
-          sendAll sock (encode $ ErrorString "decode error;")
-          hPutStrLn stderr $ "parse failed: " <> show msg <> "; error: Nope :("
-        Right (Just req) -> do
+        Right req -> do
           resp <- executeCommand store req
           resp `seq` sendAll sock resp
 

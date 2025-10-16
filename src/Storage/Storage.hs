@@ -4,6 +4,7 @@ import Control.Concurrent
 import qualified Data.Map.Strict as M
 import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq, (><), (|>))
+import qualified Data.Sequence as Seq
 import Data.Time.Clock
 import qualified StmContainers.Map as SM
 
@@ -53,3 +54,8 @@ rpush store key vals = atomically $ do
   let seqWithInserted = seq >< fromList vals
   SM.insert seqWithInserted key arrayMap
   pure $ toInteger $ length seqWithInserted
+
+getRange :: Storage -> ByteString -> Int -> Int -> IO [ByteString]
+getRange store key from len = atomically $ do
+  mSeq <- SM.lookup key $ storeArrayMap store
+  pure $ mSeq & fromMaybe mempty & Seq.drop from & Seq.take len & toList

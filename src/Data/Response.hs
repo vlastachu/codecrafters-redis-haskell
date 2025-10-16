@@ -10,6 +10,7 @@ data Response
   | Error ByteString
   | RawString ByteString
   | RawInteger Integer
+  | RawArray [Response]
 
 encodeResponse :: Response -> RedisValue
 encodeResponse Pong = SimpleString "PONG"
@@ -18,3 +19,4 @@ encodeResponse Nil = NilString
 encodeResponse OK = SimpleString "OK"
 encodeResponse (RawString s) = BulkString s
 encodeResponse (RawInteger i) = Integer i
+encodeResponse (RawArray a) = Array $ encodeResponse <$> a

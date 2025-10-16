@@ -2,7 +2,11 @@ module Data.Request where
 
 import qualified Data.ByteString.Char8 as BS
 import Data.Char (toUpper)
+import Data.Maybe (Maybe (Nothing))
 import Data.Protocol.Types
+import GHC.IO (unsafePerformIO)
+import GHC.Num (Num (fromInteger))
+import GHC.Real (Integral (toInteger))
 
 data Request
   = Ping
@@ -10,31 +14,36 @@ data Request
   | Get BS.ByteString
   | Set BS.ByteString BS.ByteString (Maybe Int)
   | RPush BS.ByteString [BS.ByteString]
+  | LRange BS.ByteString Int Int
   deriving (Show, Eq)
 
 bsUpper :: ByteString -> ByteString
 bsUpper = BS.map toUpper
 
-decodeRequest :: RedisValue -> Maybe Request
+decodeRequest :: RedisValue -> Either String Request
 decodeRequest (Array (BulkString cmd : args)) = decodeInner (bsUpper cmd) args
-decodeRequest _ = Nothing
+decodeRequest _ = Left "Expected Array with first element BulkString as command pattern"
 
-decodeInner :: BS.ByteString -> [RedisValue] -> Maybe Request
-decodeInner "PING" [] = Just Ping
-decodeInner "ECHO" [BulkString msg] = Just $ Echo msg
-decodeInner "GET" [BulkString key] = Just $ Get key
+decodeInner :: BS.ByteString -> [RedisValue] -> Either String Request
+decodeInner "PING" [] = Right Ping
+decodeInner "ECHO" [BulkString msg] = Right $ Echo msg
+decodeInner "GET" [BulkString key] = Right $ Get key
 decodeInner "SET" (BulkString key : BulkString val : rest) =
   case parseExpiration rest of
-    Nothing -> if null rest then Just (Set key val Nothing) else fail "Unrecognized Set args"
-    justExp -> Just (Set key val justExp)
+    Nothing -> if null rest then Right (Set key val Nothing) else Left "Unrecognized Set args"
+    justExp -> Right (Set key val justExp)
 decodeInner "RPUSH" (BulkString key : vals) =
   case traverse fromBulkString vals of
-    Just bsList -> Just $ RPush key bsList
-    Nothing -> Nothing
+    Just bsList -> Right $ RPush key bsList
+    Nothing -> Left "can't decode RPUSH args"
   where
     fromBulkString (BulkString b) = Just b
     fromBulkString _ = Nothing
-decodeInner _ _ = Nothing
+decodeInner "LRANGE" [BulkString key, BulkString from, BulkString len] =
+  case (BS.readInt from, BS.readInt len) of
+    (Just (from, _), Just (len, _)) -> Right $ LRange key from len
+    _ -> Left "can't decode LRANGE args"
+decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
 -- Парсер expiration
 parseExpiration :: [RedisValue] -> Maybe Int
