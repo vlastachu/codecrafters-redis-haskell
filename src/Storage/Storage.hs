@@ -2,7 +2,8 @@ module Storage.Storage where
 
 import Control.Concurrent
 import qualified Data.Map.Strict as M
-import Data.Sequence (Seq, (|>))
+import Data.Maybe (fromMaybe)
+import Data.Sequence (Seq, (><), (|>))
 import Data.Time.Clock
 import qualified StmContainers.Map as SM
 
@@ -44,12 +45,11 @@ getValue store key = do
             SM.delete key (storeMap store)
             pure Nothing
 
-rpush :: Storage -> ByteString -> ByteString -> IO Integer
-rpush store key val = atomically $ do
+rpush :: Storage -> ByteString -> [ByteString] -> IO Integer
+rpush store key vals = atomically $ do
   let arrayMap = storeArrayMap store
   mSeq <- SM.lookup key arrayMap
-  let seqWithInserted = case mSeq of
-        Nothing -> mempty |> val
-        Just s -> s |> val
+  let seq = fromMaybe mempty mSeq
+  let seqWithInserted = seq >< fromList vals
   SM.insert seqWithInserted key arrayMap
   pure $ toInteger $ length seqWithInserted

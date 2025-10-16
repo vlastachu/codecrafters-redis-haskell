@@ -9,7 +9,7 @@ data Request
   | Echo BS.ByteString
   | Get BS.ByteString
   | Set BS.ByteString BS.ByteString (Maybe Int)
-  | RPush BS.ByteString BS.ByteString
+  | RPush BS.ByteString [BS.ByteString]
   deriving (Show, Eq)
 
 bsUpper :: ByteString -> ByteString
@@ -27,7 +27,13 @@ decodeInner "SET" (BulkString key : BulkString val : rest) =
   case parseExpiration rest of
     Nothing -> if null rest then Just (Set key val Nothing) else fail "Unrecognized Set args"
     justExp -> Just (Set key val justExp)
-decodeInner "RPUSH" [BulkString key, BulkString val] = Just $ RPush key val
+decodeInner "RPUSH" (BulkString key : vals) =
+  case traverse fromBulkString vals of
+    Just bsList -> Just $ RPush key bsList
+    Nothing -> Nothing
+  where
+    fromBulkString (BulkString b) = Just b
+    fromBulkString _ = Nothing
 decodeInner _ _ = Nothing
 
 -- Парсер expiration
