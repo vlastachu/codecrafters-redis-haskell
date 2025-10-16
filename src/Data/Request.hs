@@ -39,9 +39,9 @@ decodeInner "RPUSH" (BulkString key : vals) =
   where
     fromBulkString (BulkString b) = Just b
     fromBulkString _ = Nothing
-decodeInner "LRANGE" [BulkString key, BulkString from, BulkString len] =
-  case (BS.readInt from, BS.readInt len) of
-    (Just (from, _), Just (len, _)) -> Right $ LRange key from len
+decodeInner "LRANGE" [BulkString key, BulkString from, BulkString to] =
+  case (BS.readInt from, BS.readInt to) of
+    (Just (from, _), Just (to, _)) -> Right $ LRange key from to
     _ -> Left "can't decode LRANGE args"
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 

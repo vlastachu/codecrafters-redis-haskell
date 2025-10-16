@@ -56,6 +56,11 @@ rpush store key vals = atomically $ do
   pure $ toInteger $ length seqWithInserted
 
 getRange :: Storage -> ByteString -> Int -> Int -> IO [ByteString]
-getRange store key from len = atomically $ do
+getRange store key from to = atomically $ do
   mSeq <- SM.lookup key $ storeArrayMap store
-  pure $ mSeq & fromMaybe mempty & Seq.drop from & Seq.take len & toList
+  pure $
+    mSeq
+      & fromMaybe mempty
+      & Seq.drop from
+      & Seq.take (to - from)
+      & toList

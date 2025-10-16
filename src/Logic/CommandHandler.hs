@@ -17,7 +17,6 @@ handleCommand store (Set key val mExp) = do
 handleCommand store (RPush key vals) = do
   len <- rpush store key vals
   pure $ RawInteger len
-  pure OK
 handleCommand store (LRange key from to) = do
   range <- getRange store key from to
   pure $ RawArray $ RawString <$> range
