@@ -47,13 +47,19 @@ getValue store key = do
             pure Nothing
 
 rpush :: Storage -> ByteString -> [ByteString] -> IO Integer
-rpush store key vals = atomically $ do
+rpush store key vals = modifySeq store key (\seq -> seq >< fromList vals)
+
+lpush :: Storage -> ByteString -> [ByteString] -> IO Integer
+lpush store key vals = modifySeq store key (\seq -> fromList vals >< seq)
+
+modifySeq :: Storage -> ByteString -> (Seq ByteString -> Seq ByteString) -> IO Integer
+modifySeq store key modifier = atomically $ do
   let arrayMap = storeArrayMap store
   mSeq <- SM.lookup key arrayMap
   let seq = fromMaybe mempty mSeq
-  let seqWithInserted = seq >< fromList vals
-  SM.insert seqWithInserted key arrayMap
-  pure $ toInteger $ length seqWithInserted
+  let modifiedSeq = modifier seq
+  SM.insert modifiedSeq key arrayMap
+  pure $ toInteger $ length modifiedSeq
 
 getRange :: Storage -> ByteString -> Int -> Int -> IO [ByteString]
 getRange store key from to = atomically $ do

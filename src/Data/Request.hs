@@ -14,6 +14,7 @@ data Request
   | Get BS.ByteString
   | Set BS.ByteString BS.ByteString (Maybe Int)
   | RPush BS.ByteString [BS.ByteString]
+  | LPush BS.ByteString [BS.ByteString]
   | LRange BS.ByteString Int Int
   deriving (Show, Eq)
 
@@ -36,14 +37,18 @@ decodeInner "RPUSH" (BulkString key : vals) =
   case traverse fromBulkString vals of
     Just bsList -> Right $ RPush key bsList
     Nothing -> Left "can't decode RPUSH args"
-  where
-    fromBulkString (BulkString b) = Just b
-    fromBulkString _ = Nothing
+decodeInner "LPUSH" (BulkString key : vals) =
+  case traverse fromBulkString vals of
+    Just bsList -> Right $ LPush key bsList
+    Nothing -> Left "can't decode LPUSH args"
 decodeInner "LRANGE" [BulkString key, BulkString from, BulkString to] =
   case (BS.readInt from, BS.readInt to) of
     (Just (from, _), Just (to, _)) -> Right $ LRange key from to
     _ -> Left "can't decode LRANGE args"
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
+
+fromBulkString (BulkString b) = Just b
+fromBulkString _ = Nothing
 
 -- Парсер expiration
 parseExpiration :: [RedisValue] -> Maybe Int

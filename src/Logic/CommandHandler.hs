@@ -14,6 +14,9 @@ handleCommand store (Get key) = do
 handleCommand store (Set key val mExp) = do
   setValue store key val mExp
   pure OK
+handleCommand store (LPush key vals) = do
+  len <- lpush store key vals
+  pure $ RawInteger len
 handleCommand store (RPush key vals) = do
   len <- rpush store key vals
   pure $ RawInteger len
