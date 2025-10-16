@@ -52,7 +52,7 @@ decodeInner "LPOP" [BulkString key, BulkString len] =
   case BS.readInt len of
     Just (len, _) -> Right $ LPop key len
     _ -> Left "can't decode LPOP args"
-decodeInner "LPOP" [BulkString key] = decodeInner "LPOP" [BulkString key, BulkString "0"]
+decodeInner "LPOP" [BulkString key] = decodeInner "LPOP" [BulkString key, BulkString "1"]
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
 fromBulkString (BulkString b) = Just b
