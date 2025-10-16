@@ -62,5 +62,5 @@ getRange store key from to = atomically $ do
     mSeq
       & fromMaybe mempty
       & Seq.drop from
-      & Seq.take (to - from)
+      & Seq.take (to - from + 1)
       & toList
