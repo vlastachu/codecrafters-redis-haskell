@@ -44,8 +44,7 @@ runServer store = do
 
     close'' conn someExc = do
       close conn
-      print someExc
-      hPutStrLn stderr $ "Connection closed" <> show conn
+      hPutStrLn stderr $ "Connection" <> show conn <> " closed by exceptio: " <> show someExc
 
 -- | Обработка одного клиента
 handleClient :: Socket -> Storage -> IO ()

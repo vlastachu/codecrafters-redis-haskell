@@ -11,8 +11,7 @@ import qualified Data.Map.Strict as M
 import Data.Time.Clock
 
 data Storage = Storage
-  { storeMap :: TVar (M.Map ByteString (ByteString, Maybe UTCTime)),
-    timeCache :: TVar UTCTime
+  { storeMap :: TVar (M.Map ByteString (ByteString, Maybe UTCTime))
   }
 
 -- | Создать новое хранилище и кэш времени
@@ -20,24 +19,13 @@ newStorage :: IO Storage
 newStorage = do
   now <- getCurrentTime
   storeVar <- newTVarIO M.empty
-  timeVar <- newTVarIO now
 
-  -- фоновое обновление времени каждую секунду
-  _ <- forkIO $ forever $ do
-    threadDelay 100000
-    now' <- getCurrentTime
-    atomically $ writeTVar timeVar now'
-
-  pure $ Storage storeVar timeVar
-
--- | Получить текущее время из кэша
-getCachedTime :: Storage -> IO UTCTime
-getCachedTime = readTVarIO . timeCache
+  pure $ Storage storeVar
 
 -- | Установить ключ с значением и опциональным временем жизни (секунды)
 setValue :: Storage -> ByteString -> ByteString -> Maybe Int -> IO ()
 setValue store key val msec = do
-  now <- getCachedTime store
+  now <- getCurrentTime
   let stmMap = storeMap store
   let addTime s = addUTCTime (fromIntegral s) now
   let expireTime = addTime <$> msec
@@ -46,7 +34,7 @@ setValue store key val msec = do
 -- | Получить значение по ключу. Возвращает Nothing, если ключ не найден или истёк.
 getValue :: Storage -> ByteString -> IO (Maybe ByteString)
 getValue store key = do
-  now <- getCachedTime store
+  now <- getCurrentTime
   let stmMap = storeMap store
   atomically $ do
     m <- readTVar stmMap
