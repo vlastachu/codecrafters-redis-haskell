@@ -26,3 +26,6 @@ handleCommand store (LRange key from to) = do
 handleCommand store (LLen key) = do
   len <- llen store key
   pure $ RawInteger len
+handleCommand store (LPop key len) = do
+  range <- lpop store key len
+  pure $ RawArray $ RawString <$> range

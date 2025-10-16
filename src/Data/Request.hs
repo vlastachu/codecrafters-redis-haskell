@@ -17,6 +17,7 @@ data Request
   | LPush BS.ByteString [BS.ByteString]
   | LRange BS.ByteString Int Int
   | LLen BS.ByteString
+  | LPop BS.ByteString Int
   deriving (Show, Eq)
 
 bsUpper :: ByteString -> ByteString
@@ -47,6 +48,11 @@ decodeInner "LRANGE" [BulkString key, BulkString from, BulkString to] =
     (Just (from, _), Just (to, _)) -> Right $ LRange key from to
     _ -> Left "can't decode LRANGE args"
 decodeInner "LLEN" [BulkString key] = Right $ LLen key
+decodeInner "LPOP" [BulkString key, BulkString len] =
+  case BS.readInt len of
+    Just (len, _) -> Right $ LPop key len
+    _ -> Left "can't decode LPOP args"
+decodeInner "LPOP" [BulkString key] = decodeInner "LPOP" [BulkString key, BulkString "0"]
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
 fromBulkString (BulkString b) = Just b

@@ -68,6 +68,15 @@ llen store key = atomically $ do
   let seq = fromMaybe mempty mSeq
   pure $ toInteger $ length seq
 
+lpop :: Storage -> ByteString -> Int -> IO [ByteString]
+lpop store key len = atomically $ do
+  let arrayMap = storeArrayMap store
+  mSeq <- SM.lookup key arrayMap
+  let seq = fromMaybe mempty mSeq
+  let (removed, rest) = Seq.splitAt len seq
+  SM.insert rest key arrayMap
+  pure $ toList removed
+
 getRange :: Storage -> ByteString -> Int -> Int -> IO [ByteString]
 getRange store key from to = atomically $ do
   mSeq <- SM.lookup key $ storeArrayMap store
