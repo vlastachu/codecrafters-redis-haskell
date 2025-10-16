@@ -27,8 +27,8 @@ setValue :: Storage -> ByteString -> ByteString -> Maybe Int -> IO ()
 setValue store key val msec = do
   now <- getCurrentTime
   let stmMap = storeMap store
-  let addTime s = addUTCTime (fromIntegral s) now
-  let expireTime = addTime <$> msec
+  let addMillseconds ms = addUTCTime (fromRational (toRational ms / 1000)) now
+  let expireTime = addMillseconds <$> msec
   atomically $ modifyTVar' stmMap (M.insert key (val, expireTime))
 
 -- | Получить значение по ключу. Возвращает Nothing, если ключ не найден или истёк.
