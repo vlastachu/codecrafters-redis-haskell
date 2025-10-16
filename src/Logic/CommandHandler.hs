@@ -23,3 +23,6 @@ handleCommand store (RPush key vals) = do
 handleCommand store (LRange key from to) = do
   range <- getRange store key from to
   pure $ RawArray $ RawString <$> range
+handleCommand store (LLen key) = do
+  len <- llen store key
+  pure $ RawInteger len

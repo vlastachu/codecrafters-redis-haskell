@@ -61,6 +61,13 @@ modifySeq store key modifier = atomically $ do
   SM.insert modifiedSeq key arrayMap
   pure $ toInteger $ length modifiedSeq
 
+llen :: Storage -> ByteString -> IO Integer
+llen store key = atomically $ do
+  let arrayMap = storeArrayMap store
+  mSeq <- SM.lookup key arrayMap
+  let seq = fromMaybe mempty mSeq
+  pure $ toInteger $ length seq
+
 getRange :: Storage -> ByteString -> Int -> Int -> IO [ByteString]
 getRange store key from to = atomically $ do
   mSeq <- SM.lookup key $ storeArrayMap store
