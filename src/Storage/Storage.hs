@@ -50,7 +50,7 @@ rpush :: Storage -> ByteString -> [ByteString] -> IO Integer
 rpush store key vals = modifySeq store key (\seq -> seq >< fromList vals)
 
 lpush :: Storage -> ByteString -> [ByteString] -> IO Integer
-lpush store key vals = modifySeq store key (\seq -> fromList vals >< seq)
+lpush store key vals = modifySeq store key (\seq -> fromList (reverse vals) >< seq)
 
 modifySeq :: Storage -> ByteString -> (Seq ByteString -> Seq ByteString) -> IO Integer
 modifySeq store key modifier = atomically $ do
