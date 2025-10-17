@@ -13,11 +13,13 @@ data Request
   | Echo BS.ByteString
   | Get BS.ByteString
   | Set BS.ByteString BS.ByteString (Maybe Int)
-  | RPush BS.ByteString [BS.ByteString]
+  | -- ARRAY Commands
+    RPush BS.ByteString [BS.ByteString]
   | LPush BS.ByteString [BS.ByteString]
   | LRange BS.ByteString Int Int
   | LLen BS.ByteString
   | LPop BS.ByteString Int
+  | BLPop BS.ByteString Int
   deriving (Show, Eq)
 
 bsUpper :: ByteString -> ByteString
@@ -53,6 +55,10 @@ decodeInner "LPOP" [BulkString key, BulkString len] =
     Just (len, _) -> Right $ LPop key len
     _ -> Left "can't decode LPOP args"
 decodeInner "LPOP" [BulkString key] = decodeInner "LPOP" [BulkString key, BulkString "1"]
+decodeInner "BLPOP" [BulkString key, BulkString timeout] =
+  case BS.readInt timeout of
+    Just (timeout, _) -> Right $ BLPop key timeout
+    _ -> Left "can't decode BLPOP args"
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
 fromBulkString (BulkString b) = Just b

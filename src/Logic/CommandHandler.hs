@@ -32,3 +32,6 @@ handleCommand store (LPop key len) = do
     [] -> Nil
     [one] -> RawString one
     more -> RawArray $ RawString <$> more
+handleCommand store (BLPop key timeout) = do
+  item <- blpop store key timeout
+  pure $ maybe Nil RawString item

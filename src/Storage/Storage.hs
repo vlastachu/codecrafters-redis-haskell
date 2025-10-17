@@ -1,24 +1,24 @@
 module Storage.Storage where
 
 import Control.Concurrent
+import qualified Control.Monad.STM as STM
 import qualified Data.Map.Strict as M
 import Data.Maybe (fromMaybe)
-import Data.Sequence (Seq, (><), (|>))
+import Data.Sequence (Seq, ViewL (..), (><), (|>))
 import qualified Data.Sequence as Seq
 import Data.Time.Clock
 import qualified StmContainers.Map as SM
 
 data Storage = Storage
   { storeMap :: !(SM.Map ByteString (ByteString, Maybe UTCTime)),
-    storeArrayMap :: !(SM.Map ByteString (Seq ByteString))
+    storeArrayMap :: !(SM.Map ByteString (Seq ByteString)),
+    storeArrayMapPopTimer :: !(SM.Map (ByteString) Bool)
   }
 
 -- | Создать новое хранилище
 newStorage :: IO Storage
-newStorage = do
-  m <- SM.newIO
-  m2 <- SM.newIO
-  pure $ Storage m m2
+newStorage =
+  Storage <$> SM.newIO <*> SM.newIO <*> SM.newIO
 
 -- | Установить ключ с значением и опциональным временем жизни (миллисекунды)
 setValue :: Storage -> ByteString -> ByteString -> Maybe Int -> IO ()
@@ -89,3 +89,25 @@ getRange store key from to = atomically $ do
       & Seq.drop from'
       & Seq.take (to' - from' + 1)
       & toList
+
+blpop :: Storage -> ByteString -> Int -> IO (Maybe ByteString)
+blpop store key timeout = do
+  let arrayMap = storeArrayMap store
+  let timeoutMap = storeArrayMapPopTimer store
+  when (timeout > 0) $ void . forkIO $ do
+    threadDelay (timeout * 1000 * 1000)
+    atomically $ SM.insert True key timeoutMap
+  atomically $ do
+    mSeq <- SM.lookup key arrayMap
+    case mSeq of
+      Just (Seq.viewl -> item :< rest) -> do
+        SM.insert rest key arrayMap
+        pure $ Just item
+      _ ->
+        if timeout > 0
+          then do
+            mTimeout <- SM.lookup key timeoutMap
+            case mTimeout of
+              Just True -> pure Nothing
+              _ -> STM.retry
+          else STM.retry

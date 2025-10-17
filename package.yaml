@@ -6,6 +6,7 @@ license: BSD3
 default-extensions:
   - OverloadedStrings
   - BangPatterns
+  - ViewPatterns
 
 ghc-options:
   - -Wall
