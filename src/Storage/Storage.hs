@@ -90,12 +90,12 @@ getRange store key from to = atomically $ do
       & Seq.take (to' - from' + 1)
       & toList
 
-blpop :: Storage -> ByteString -> Int -> IO (Maybe [ByteString])
+blpop :: Storage -> ByteString -> Float -> IO (Maybe [ByteString])
 blpop store key timeout = do
   let arrayMap = storeArrayMap store
   let timeoutMap = storeArrayMapPopTimer store
   when (timeout > 0) $ void . forkIO $ do
-    threadDelay (timeout * 1000 * 1000)
+    threadDelay (round $ timeout * 1000 * 1000)
     atomically $ SM.insert True key timeoutMap
   atomically $ do
     mSeq <- SM.lookup key arrayMap

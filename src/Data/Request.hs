@@ -7,6 +7,7 @@ import Data.Protocol.Types
 import GHC.IO (unsafePerformIO)
 import GHC.Num (Num (fromInteger))
 import GHC.Real (Integral (toInteger))
+import qualified Numeric as Num
 
 data Request
   = Ping
@@ -19,7 +20,7 @@ data Request
   | LRange BS.ByteString Int Int
   | LLen BS.ByteString
   | LPop BS.ByteString Int
-  | BLPop BS.ByteString Int
+  | BLPop BS.ByteString Float
   deriving (Show, Eq)
 
 bsUpper :: ByteString -> ByteString
@@ -56,8 +57,8 @@ decodeInner "LPOP" [BulkString key, BulkString len] =
     _ -> Left "can't decode LPOP args"
 decodeInner "LPOP" [BulkString key] = decodeInner "LPOP" [BulkString key, BulkString "1"]
 decodeInner "BLPOP" [BulkString key, BulkString timeout] =
-  case BS.readInt timeout of
-    Just (timeout, _) -> Right $ BLPop key timeout
+  case readMaybe (BS.unpack timeout) of
+    Just timeout -> Right $ BLPop key timeout
     _ -> Left "can't decode BLPOP args"
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
