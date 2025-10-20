@@ -60,7 +60,7 @@ decodeInner "BLPOP" [BulkString key, BulkString timeout] =
   case readMaybe (BS.unpack timeout) of
     Just timeout -> Right $ BLPop key timeout
     _ -> Left "can't decode BLPOP args"
-decodeInner cmd _ = Left $ "unrecognized command:  " <> show cmd
+decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
 fromBulkString (BulkString b) = Just b
 fromBulkString _ = Nothing
