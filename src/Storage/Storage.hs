@@ -2,9 +2,7 @@ module Storage.Storage where
 
 import Control.Concurrent
 import qualified Control.Monad.STM as STM
-import qualified Data.Map.Strict as M
-import Data.Maybe (fromMaybe)
-import Data.Sequence (Seq, ViewL (..), (><), (|>))
+import Data.Sequence (ViewL (..), (><))
 import qualified Data.Sequence as Seq
 import Data.Time.Clock
 import qualified StmContainers.Map as SM
@@ -12,7 +10,7 @@ import qualified StmContainers.Map as SM
 data Storage = Storage
   { storeMap :: !(SM.Map ByteString (ByteString, Maybe UTCTime)),
     storeArrayMap :: !(SM.Map ByteString (Seq ByteString)),
-    storeArrayMapPopTimer :: !(SM.Map (ByteString) Bool)
+    storeArrayMapPopTimer :: !(SM.Map ByteString Bool)
   }
 
 -- | Создать новое хранилище
@@ -47,17 +45,17 @@ getValue store key = do
             pure Nothing
 
 rpush :: Storage -> ByteString -> [ByteString] -> IO Integer
-rpush store key vals = modifySeq store key (\seq -> seq >< fromList vals)
+rpush store key vals = modifySeq store key (\list -> list >< fromList vals)
 
 lpush :: Storage -> ByteString -> [ByteString] -> IO Integer
-lpush store key vals = modifySeq store key (\seq -> fromList (reverse vals) >< seq)
+lpush store key vals = modifySeq store key (\list -> fromList (reverse vals) >< list)
 
 modifySeq :: Storage -> ByteString -> (Seq ByteString -> Seq ByteString) -> IO Integer
 modifySeq store key modifier = atomically $ do
   let arrayMap = storeArrayMap store
   mSeq <- SM.lookup key arrayMap
-  let seq = fromMaybe mempty mSeq
-  let modifiedSeq = modifier seq
+  let list = fromMaybe mempty mSeq
+  let modifiedSeq = modifier list
   SM.insert modifiedSeq key arrayMap
   pure $ toInteger $ length modifiedSeq
 
@@ -65,27 +63,27 @@ llen :: Storage -> ByteString -> IO Integer
 llen store key = atomically $ do
   let arrayMap = storeArrayMap store
   mSeq <- SM.lookup key arrayMap
-  let seq = fromMaybe mempty mSeq
-  pure $ toInteger $ length seq
+  let list = fromMaybe mempty mSeq
+  pure $ toInteger $ length list
 
 lpop :: Storage -> ByteString -> Int -> IO [ByteString]
 lpop store key len = atomically $ do
   let arrayMap = storeArrayMap store
   mSeq <- SM.lookup key arrayMap
-  let seq = fromMaybe mempty mSeq
-  let (removed, rest) = Seq.splitAt len seq
+  let list = fromMaybe mempty mSeq
+  let (removed, rest) = Seq.splitAt len list
   SM.insert rest key arrayMap
   pure $ toList removed
 
 getRange :: Storage -> ByteString -> Int -> Int -> IO [ByteString]
 getRange store key from to = atomically $ do
   mSeq <- SM.lookup key $ storeArrayMap store
-  let seq = fromMaybe mempty mSeq
-  let len = length seq
+  let list = fromMaybe mempty mSeq
+  let len = length list
   let from' = if from < 0 then len + from else from
   let to' = if to < 0 then len + to else to
   pure $
-    seq
+    list
       & Seq.drop from'
       & Seq.take (to' - from' + 1)
       & toList
