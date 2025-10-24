@@ -13,7 +13,12 @@ ghc-options:
   - -threaded
 
 dependencies:
-  - base >= 4.19 && < 5
+  - name: base
+    mixin:
+      - hiding (Prelude)
+  - name: relude
+    mixin:
+      - (Relude as Prelude)
   - network-simple # establish a simple TCP network
   - bytestring # useful to send bytes over the network
   - network # required when using bytestring
@@ -24,21 +29,14 @@ dependencies:
   - time # may help with the expiry function
   - async # may help with concurrency
   - mtl # may help with structuring
-  # Parsing libs
-  - megaparsec
-  - parser-combinators
-  - parsec
-  - attoparsec
 
 library:
   source-dirs: src
   dependencies:
-  - name: base
-    mixin:
-      - hiding (Prelude)
-  - name: relude
-    mixin:
-      - (Relude as Prelude)
+    - megaparsec
+    - parser-combinators
+    - parsec
+    - attoparsec
 
 executables:
   codecrafters-redis-exe:
@@ -49,3 +47,11 @@ executables:
     ghc-options:
       - -rtsopts         # разрешаем RTS-флаги
       - -with-rtsopts=-N # по умолчанию использовать все ядра
+
+tests:
+  protocol-tests:
+    main: Main.hs
+    source-dirs: test
+    dependencies:
+    - codecrafters-redis
+    - QuickCheck

@@ -6,7 +6,6 @@ module Main (main) where
 
 import Network.Network
 import Storage.Storage
-import System.IO (BufferMode (NoBuffering), hPutStrLn, hSetBuffering, stderr, stdout)
 
 main :: IO ()
 main = do

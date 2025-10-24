@@ -2,12 +2,7 @@ module Data.Request where
 
 import qualified Data.ByteString.Char8 as BS
 import Data.Char (toUpper)
-import Data.Maybe (Maybe (Nothing))
 import Data.Protocol.Types
-import GHC.IO (unsafePerformIO)
-import GHC.Num (Num (fromInteger))
-import GHC.Real (Integral (toInteger))
-import qualified Numeric as Num
 
 data Request
   = Ping
@@ -48,20 +43,21 @@ decodeInner "LPUSH" (BulkString key : vals) =
     Nothing -> Left "can't decode LPUSH args"
 decodeInner "LRANGE" [BulkString key, BulkString from, BulkString to] =
   case (BS.readInt from, BS.readInt to) of
-    (Just (from, _), Just (to, _)) -> Right $ LRange key from to
+    (Just (from', _), Just (to', _)) -> Right $ LRange key from' to'
     _ -> Left "can't decode LRANGE args"
 decodeInner "LLEN" [BulkString key] = Right $ LLen key
 decodeInner "LPOP" [BulkString key, BulkString len] =
   case BS.readInt len of
-    Just (len, _) -> Right $ LPop key len
+    Just (len', _) -> Right $ LPop key len'
     _ -> Left "can't decode LPOP args"
 decodeInner "LPOP" [BulkString key] = decodeInner "LPOP" [BulkString key, BulkString "1"]
 decodeInner "BLPOP" [BulkString key, BulkString timeout] =
   case readMaybe (BS.unpack timeout) of
-    Just timeout -> Right $ BLPop key timeout
+    Just timeout' -> Right $ BLPop key timeout'
     _ -> Left "can't decode BLPOP args"
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
+fromBulkString :: RedisValue -> Maybe ByteString
 fromBulkString (BulkString b) = Just b
 fromBulkString _ = Nothing
 

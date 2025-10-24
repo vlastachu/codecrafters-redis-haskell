@@ -1,0 +1,10 @@
+cradle:
+  cabal:
+    - path: "src"
+      component: "lib:codecrafters-redis"
+
+    - path: "app/Main.hs"
+      component: "codecrafters-redis:exe:codecrafters-redis-exe"
+
+    - path: "test"
+      component: "codecrafters-redis:test:protocol-tests"

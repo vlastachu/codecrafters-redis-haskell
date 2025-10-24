@@ -1,6 +1,5 @@
 module Logic.CommandHandler where
 
-import Data.Maybe (Maybe (Nothing), fromMaybe)
 import Data.Request
 import Data.Response
 import Storage.Storage
@@ -30,7 +29,7 @@ handleCommand store (LPop key len) = do
   range <- lpop store key len
   pure $ case range of
     [] -> Nil
-    [one] -> RawString one
+    [oneString] -> RawString oneString
     more -> RawArray $ RawString <$> more
 handleCommand store (BLPop key timeout) = do
   item <- blpop store key timeout
