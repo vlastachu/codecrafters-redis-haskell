@@ -14,7 +14,7 @@ import Logic.CommandHandler
 import Network.Socket
 import Network.Socket.ByteString (recv, sendAll)
 import Storage.Storage
-import System.IO (BufferMode (NoBuffering), hPutStrLn, hSetBuffering, stderr, stdout)
+import System.IO (hPutStrLn)
 
 defaultRedisPort :: ServiceName
 defaultRedisPort = "6379"
@@ -26,7 +26,7 @@ runServer store = do
   sock <- open addr
   hPutStrLn stderr $ "Server listening on port " ++ defaultRedisPort
   forever $ do
-    (conn, peer) <- accept sock
+    (conn, _) <- accept sock
     -- hPutStrLn stderr  $ "Connection from " ++ show peer
     void $ forkFinally (handleClient conn store) (close'' conn)
   where
