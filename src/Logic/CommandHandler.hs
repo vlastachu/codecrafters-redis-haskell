@@ -10,6 +10,11 @@ handleCommand _ (Echo str) = pure $ RawString str
 handleCommand store (Get key) = do
   mVal <- getValue store key
   pure $ maybe Nil RawString mVal
+handleCommand store (Type key) = do
+  mVal <- getValue store key
+  pure $ RawString $ case mVal of
+    Just _ -> "string"
+    Nothing -> "none"
 handleCommand store (Set key val mExp) = do
   setValue store key val mExp
   pure OK

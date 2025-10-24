@@ -6,16 +6,18 @@ import Data.Protocol.Types
 
 data Request
   = Ping
-  | Echo BS.ByteString
-  | Get BS.ByteString
-  | Set BS.ByteString BS.ByteString (Maybe Int)
+  | Echo ByteString
+  | Get ByteString
+  | Set ByteString ByteString (Maybe Int)
   | -- ARRAY Commands
-    RPush BS.ByteString [BS.ByteString]
-  | LPush BS.ByteString [BS.ByteString]
-  | LRange BS.ByteString Int Int
-  | LLen BS.ByteString
-  | LPop BS.ByteString Int
-  | BLPop BS.ByteString Float
+    RPush ByteString [ByteString]
+  | LPush ByteString [ByteString]
+  | LRange ByteString Int Int
+  | LLen ByteString
+  | LPop ByteString Int
+  | BLPop ByteString Float
+  | -- STREAM Commands
+    Type ByteString
   deriving (Show, Eq)
 
 bsUpper :: ByteString -> ByteString
@@ -29,6 +31,7 @@ decodeInner :: BS.ByteString -> [RedisValue] -> Either String Request
 decodeInner "PING" [] = Right Ping
 decodeInner "ECHO" [BulkString msg] = Right $ Echo msg
 decodeInner "GET" [BulkString key] = Right $ Get key
+decodeInner "TYPE" [BulkString key] = Right $ Type key
 decodeInner "SET" (BulkString key : BulkString val : rest) =
   case parseExpiration rest of
     Nothing -> if null rest then Right (Set key val Nothing) else Left "Unrecognized Set args"
