@@ -7,5 +7,5 @@ data RedisValue
   | NilString -- String with length = -1
   | Integer Integer
   | Array [RedisValue]
-  | NilArray -- Array with length = -1
+  | RawNilArray -- Array with length = -1
   deriving (Eq, Show)

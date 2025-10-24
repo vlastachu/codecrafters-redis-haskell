@@ -1,11 +1,11 @@
 module Data.Response where
 
 import Data.Protocol.Types
-import GHC.Integer (Integer)
 
 data Response
   = Pong
   | Nil
+  | RawNilArray
   | OK
   | Error ByteString
   | RawString ByteString
@@ -16,6 +16,7 @@ encodeResponse :: Response -> RedisValue
 encodeResponse Pong = SimpleString "PONG"
 encodeResponse (Error s) = ErrorString s
 encodeResponse Nil = NilString
+encodeResponse RawNilArray = NilArray
 encodeResponse OK = SimpleString "OK"
 encodeResponse (RawString s) = BulkString s
 encodeResponse (RawInteger i) = Integer i
