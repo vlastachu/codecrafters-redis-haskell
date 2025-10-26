@@ -15,13 +15,13 @@ import qualified Storage.Entry as SE
 -- seqNum всегда 0
 addStreamEntry :: ByteString -> [(ByteString, ByteString)] -> [SE.StreamEntry] -> [SE.StreamEntry]
 addStreamEntry timestamp fields' sdata =
-  SE.StreamEntry (SE.StreamID timestamp 0) fields' : sdata
+  SE.StreamEntry timestamp fields' : sdata
 
 getTimestampNs :: IO Word64
 getTimestampNs = getMonotonicTimeNSec
 
 lastID :: [SE.StreamEntry] -> STM ByteString
-lastID (last : _) = pure $ show $ SE.entryID last
+lastID (last : _) = pure $ SE.entryID last
 lastID _ = throwSTM $ NotFound "empty stream"
 
 setStream :: Storage -> ByteString -> [SE.StreamEntry] -> STM ()
@@ -32,7 +32,7 @@ xadd store key entryKey entries = defaultAtomically "" $ do
   mStream <- SM.lookup key (storeMap store)
   newStream <- case mStream of
     Just (SE.Stream stream) -> pure $ addStreamEntry entryKey entries stream
-    Nothing -> pure [SE.StreamEntry (SE.StreamID entryKey 0) entries]
+    Nothing -> pure [SE.StreamEntry entryKey entries]
     value -> throwSTM (TypeMismatch $ "Expected array, but got: " <> show value)
   setStream store key newStream
   lastID newStream
