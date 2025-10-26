@@ -13,34 +13,26 @@ import qualified Storage.Entry as SE
 -- | Добавить запись в поток.
 -- Принимает готовый timestamp (в миллисекундах) и список полей.
 -- seqNum всегда 0
-addStreamEntry :: Word64 -> [(ByteString, ByteString)] -> SE.StreamData -> SE.StreamData
+addStreamEntry :: ByteString -> [(ByteString, ByteString)] -> [SE.StreamEntry] -> [SE.StreamEntry]
 addStreamEntry timestamp fields' sdata =
-  SE.StreamData
-    { SE.entries = SE.StreamEntry newID fields' : SE.entries sdata,
-      SE.lastID = newID
-    }
-  where
-    newID = SE.StreamID timestamp 0
+  SE.StreamEntry (SE.StreamID timestamp 0) fields' : sdata
 
 getTimestampNs :: IO Word64
 getTimestampNs = getMonotonicTimeNSec
 
-setStream :: Storage -> ByteString -> SE.StreamData -> STM ()
+lastID :: [SE.StreamEntry] -> STM ByteString
+lastID (last : _) = pure $ show $ SE.entryID last
+lastID _ = throwSTM $ NotFound "empty stream"
+
+setStream :: Storage -> ByteString -> [SE.StreamEntry] -> STM ()
 setStream store key val = SM.insert (SE.Stream val) key (storeMap store)
 
-xadd :: Storage -> ByteString -> [(ByteString, ByteString)] -> IO ByteString
-xadd store key entries = do
-  timestamp <- getTimestampNs
-  defaultAtomically "" $ do
-    mStream <- SM.lookup key (storeMap store)
-    newStream <- case mStream of
-      Just (SE.Stream stream) -> pure $ addStreamEntry timestamp entries stream
-      Nothing ->
-        pure $
-          SE.StreamData
-            { SE.entries = [SE.StreamEntry (SE.StreamID timestamp 0) entries],
-              SE.lastID = SE.StreamID timestamp 0
-            }
-      value -> throwSTM (TypeMismatch $ "Expected array, but got: " <> show value)
-    setStream store key newStream
-    pure $ show $ SE.lastID newStream
+xadd :: Storage -> ByteString -> ByteString -> [(ByteString, ByteString)] -> IO ByteString
+xadd store key entryKey entries = defaultAtomically "" $ do
+  mStream <- SM.lookup key (storeMap store)
+  newStream <- case mStream of
+    Just (SE.Stream stream) -> pure $ addStreamEntry entryKey entries stream
+    Nothing -> pure [SE.StreamEntry (SE.StreamID entryKey 0) entries]
+    value -> throwSTM (TypeMismatch $ "Expected array, but got: " <> show value)
+  setStream store key newStream
+  lastID newStream

@@ -7,7 +7,7 @@ import qualified Text.Show (Show (show))
 data StorageEntry
   = String ByteString
   | Array (Seq ByteString)
-  | Stream StreamData
+  | Stream [StreamEntry]
   deriving (Eq, Show)
 
 data StreamEntry = StreamEntry
@@ -17,7 +17,7 @@ data StreamEntry = StreamEntry
   deriving (Eq, Show)
 
 data StreamID = StreamID
-  { timestamp :: Word64,
+  { timestamp :: ByteString,
     seqNum :: Word64
   }
   deriving (Eq, Ord)
@@ -25,9 +25,3 @@ data StreamID = StreamID
 instance Show StreamID where
   show :: StreamID -> String
   show (StreamID ts seqn) = show ts ++ "-" ++ show seqn
-
-data StreamData = StreamData
-  { entries :: [StreamEntry],
-    lastID :: StreamID
-  }
-  deriving (Eq, Show)

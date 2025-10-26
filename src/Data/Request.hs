@@ -18,7 +18,7 @@ data Request
   | BLPop ByteString Float
   | -- STREAM Commands
     Type ByteString
-  | XADD ByteString [(ByteString, ByteString)]
+  | XADD ByteString ByteString [(ByteString, ByteString)]
   deriving (Show, Eq)
 
 bsUpper :: ByteString -> ByteString
@@ -63,7 +63,7 @@ decodeInner "BLPOP" [BulkString key, BulkString timeout] =
     _ -> Left "can't decode BLPOP args"
 ----------------------------
 -------STREAMS--------------
-decodeInner "XADD" (BulkString key : keyValueEntries) = Right $ XADD key $ parseKeyValues keyValueEntries
+decodeInner "XADD" (BulkString key : BulkString entryKey : keyValueEntries) = Right $ XADD key entryKey $ parseKeyValues keyValueEntries
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
 fromBulkString :: RedisValue -> Maybe ByteString
