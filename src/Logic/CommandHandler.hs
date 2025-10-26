@@ -11,10 +11,8 @@ handleCommand store (Get key) = do
   mVal <- getValue store key
   pure $ maybe Nil RawString mVal
 handleCommand store (Type key) = do
-  mVal <- getValue store key
-  pure $ RawString $ case mVal of
-    Just _ -> "string"
-    Nothing -> "none"
+  val <- getType store key
+  pure $ RawString val
 handleCommand store (Set key val mExp) = do
   setValue store key val mExp
   pure OK
