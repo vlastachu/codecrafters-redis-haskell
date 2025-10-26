@@ -30,3 +30,12 @@ defaultAtomically def action =
 newStorage :: IO Storage
 newStorage =
   Storage <$> SM.newIO <*> SM.newIO <*> SM.newIO
+
+getType :: Storage -> ByteString -> IO ByteString
+getType store key = defaultAtomically "none" $ do
+  mVal <- SM.lookup key (storeMap store)
+  pure $ case mVal of
+    Just (SE.Array _) -> "array"
+    Just (SE.String _) -> "string"
+    Just (SE.Stream _) -> "stream"
+    _ -> "none"
