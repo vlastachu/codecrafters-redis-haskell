@@ -18,6 +18,7 @@ data Request
   | BLPop ByteString Float
   | -- STREAM Commands
     Type ByteString
+  | XADD ByteString [(ByteString, ByteString)]
   deriving (Show, Eq)
 
 bsUpper :: ByteString -> ByteString
@@ -36,6 +37,8 @@ decodeInner "SET" (BulkString key : BulkString val : rest) =
   case parseExpiration rest of
     Nothing -> if null rest then Right (Set key val Nothing) else Left "Unrecognized Set args"
     justExp -> Right (Set key val justExp)
+----------------------------
+-------ARRAYS---------------
 decodeInner "RPUSH" (BulkString key : vals) =
   case traverse fromBulkString vals of
     Just bsList -> Right $ RPush key bsList
@@ -58,11 +61,18 @@ decodeInner "BLPOP" [BulkString key, BulkString timeout] =
   case readMaybe (BS.unpack timeout) of
     Just timeout' -> Right $ BLPop key timeout'
     _ -> Left "can't decode BLPOP args"
+----------------------------
+-------STREAMS--------------
+decodeInner "XADD" (BulkString key : keyValueEntries) = Right $ XADD key $ parseKeyValues keyValueEntries
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
 fromBulkString :: RedisValue -> Maybe ByteString
 fromBulkString (BulkString b) = Just b
 fromBulkString _ = Nothing
+
+parseKeyValues :: [RedisValue] -> [(ByteString, ByteString)]
+parseKeyValues (BulkString key : BulkString value : rest) = (key, value) : parseKeyValues rest
+parseKeyValues _ = []
 
 -- Парсер expiration
 parseExpiration :: [RedisValue] -> Maybe Int

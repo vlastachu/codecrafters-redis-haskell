@@ -1,0 +1,32 @@
+module Storage.Definition where
+
+import qualified Control.Exception as E
+import Data.Time.Clock
+import qualified StmContainers.Map as SM
+import qualified Storage.Entry as SE
+
+data Storage = Storage
+  { storeMap :: !(SM.Map ByteString SE.StorageEntry),
+    destroyTimerMap :: !(SM.Map ByteString UTCTime),
+    blpopWaiters :: !(SM.Map ByteString Bool)
+  }
+
+data StorageError
+  = TypeMismatch String
+  | NotFound String
+  deriving (Show, Generic, Exception)
+
+safeAtomically :: STM () -> IO ()
+safeAtomically = defaultAtomically ()
+
+defaultAtomically :: a -> STM a -> IO a
+defaultAtomically def action =
+  atomically action
+    `E.catch` \(e :: StorageError) -> do
+      putStrLn $ "[StorageError] " <> show e
+      pure def
+
+-- | Создать новое хранилище
+newStorage :: IO Storage
+newStorage =
+  Storage <$> SM.newIO <*> SM.newIO <*> SM.newIO

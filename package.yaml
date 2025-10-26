@@ -7,6 +7,11 @@ default-extensions:
   - OverloadedStrings
   - BangPatterns
   - ViewPatterns
+  - DeriveGeneric
+  - DeriveAnyClass
+  - ScopedTypeVariables
+  - NumericUnderscores
+  
 
 ghc-options:
   - -Wall
