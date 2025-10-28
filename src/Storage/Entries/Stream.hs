@@ -68,6 +68,8 @@ newStreamId key timestamp mLast = case key of
       | ts > lastTs = Just $ SE.StreamID ts 0
       | ts == lastTs = Just $ SE.StreamID ts (lastSeq + 1)
       | otherwise = Nothing
+    -- The only exception is when the time part is 0.
+    -- In that case, the default sequence number starts at 1
     nextStreamId 0 Nothing = Just $ SE.StreamID 0 1
     nextStreamId ts Nothing = Just $ SE.StreamID ts 0
 
