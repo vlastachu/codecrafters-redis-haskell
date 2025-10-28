@@ -41,7 +41,7 @@ getStream store key = do
 xadd :: Storage -> ByteString -> StreamEntryKey -> [(ByteString, ByteString)] -> IO (Either ByteString ByteString)
 xadd _ _ (Explicit x y) _ | (x, y) <= (0, 0) = pure $ Left "ERR The ID specified in XADD must be greater than 0-0"
 xadd store key entryKey entries = do
-  timestamp <- if entryKey == Autogenerate then getTimestampNs else pure 0
+  timestamp <- if entryKey == Autogenerate then getTimestampMs else pure 0
   let runStm = do
         stream <- getStream store key
         let maybeLastId = SE.entryID <$> listToMaybe stream
