@@ -14,6 +14,7 @@ data Storage = Storage
 data StorageError
   = TypeMismatch String
   | NotFound String
+  | RetryRequest
   deriving (Show, Generic, Exception)
 
 safeAtomically :: STM () -> IO ()

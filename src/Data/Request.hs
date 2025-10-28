@@ -18,7 +18,13 @@ data Request
   | BLPop ByteString Float
   | -- STREAM Commands
     Type ByteString
-  | XADD ByteString ByteString [(ByteString, ByteString)]
+  | XADD ByteString StreamEntryKey [(ByteString, ByteString)]
+  deriving (Show, Eq)
+
+data StreamEntryKey
+  = Explicit Word64 Word64
+  | AutogenerateSequenceNumber Word64
+  | Autogenerate
   deriving (Show, Eq)
 
 bsUpper :: ByteString -> ByteString
@@ -63,12 +69,28 @@ decodeInner "BLPOP" [BulkString key, BulkString timeout] =
     _ -> Left "can't decode BLPOP args"
 ----------------------------
 -------STREAMS--------------
-decodeInner "XADD" (BulkString key : BulkString entryKey : keyValueEntries) = Right $ XADD key entryKey $ parseKeyValues keyValueEntries
+decodeInner "XADD" (BulkString key : BulkString entryKey : keyValueEntries) = case parseEntryKey entryKey of
+  Right parsedEntryKey -> Right $ XADD key parsedEntryKey $ parseKeyValues keyValueEntries
+  Left err -> Left err
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
 fromBulkString :: RedisValue -> Maybe ByteString
 fromBulkString (BulkString b) = Just b
 fromBulkString _ = Nothing
+
+parseEntryKey :: ByteString -> Either String StreamEntryKey
+parseEntryKey "*" = Right Autogenerate
+parseEntryKey entrykey =
+  case BS.split '-' entrykey of
+    [tsPart, "*"] ->
+      case readMaybe (BS.unpack tsPart) of
+        Just ts -> Right (AutogenerateSequenceNumber ts)
+        Nothing -> Left $ "invalid timestamp in entry ID: " <> BS.unpack entrykey
+    [tsPart, seqPart] ->
+      case (readMaybe (BS.unpack tsPart), readMaybe (BS.unpack seqPart)) of
+        (Just ts, Just seqNum) -> Right (Explicit ts seqNum)
+        _ -> Left $ "invalid numeric parts in entry ID: " <> BS.unpack entrykey
+    _ -> Left $ "invalid entry ID format: " <> BS.unpack entrykey
 
 parseKeyValues :: [RedisValue] -> [(ByteString, ByteString)]
 parseKeyValues (BulkString key : BulkString value : rest) = (key, value) : parseKeyValues rest

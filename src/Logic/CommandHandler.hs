@@ -38,5 +38,7 @@ handleCommand store (BLPop key timeout) = do
   item <- blpop store key timeout
   pure $ maybe RawNilArray (RawArray . (RawString <$>)) item
 handleCommand store (XADD key entryKey entries) = do
-  timestamp <- xadd store key entryKey entries
-  pure $ RawString timestamp
+  mTimestamp <- xadd store key entryKey entries
+  case mTimestamp of
+    Right timestamp -> pure $ RawString timestamp
+    Left err -> pure $ Error err
