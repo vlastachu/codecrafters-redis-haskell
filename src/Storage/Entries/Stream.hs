@@ -65,7 +65,7 @@ newStreamId key timestamp mLast = case key of
   where
     nextStreamId :: Word64 -> Maybe SE.StreamID -> Maybe SE.StreamID
     nextStreamId ts (Just (SE.StreamID lastTs lastSeq))
-      | ts > lastTs = Just $ SE.StreamID ts 1
+      | ts > lastTs = Just $ SE.StreamID ts 0
       | ts == lastTs = Just $ SE.StreamID ts (lastSeq + 1)
       | otherwise = Nothing
     nextStreamId 0 Nothing = Just $ SE.StreamID 0 1
