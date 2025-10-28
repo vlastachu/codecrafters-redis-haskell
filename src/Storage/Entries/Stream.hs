@@ -2,7 +2,7 @@ module Storage.Entries.Stream where
 
 import qualified Control.Exception as E
 import Data.Request (StreamEntryKey (..))
-import GHC.Clock (getMonotonicTimeNSec)
+import Data.Time.Clock.POSIX (getPOSIXTime)
 import qualified StmContainers.Map as SM
 import Storage.Definition
 import qualified Storage.Entry as SE
@@ -14,8 +14,10 @@ addStreamEntry :: SE.StreamID -> [(ByteString, ByteString)] -> [SE.StreamEntry] 
 addStreamEntry entryId fields' sdata =
   SE.StreamEntry entryId fields' : sdata
 
-getTimestampNs :: IO Word64
-getTimestampNs = getMonotonicTimeNSec
+getTimestampMs :: IO Word64
+getTimestampMs = do
+  t <- getPOSIXTime
+  pure $ floor (t * 1000)
 
 lastID :: [SE.StreamEntry] -> STM ByteString
 lastID (lastItem : _) = pure $ show $ SE.entryID lastItem
