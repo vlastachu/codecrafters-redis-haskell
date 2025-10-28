@@ -37,6 +37,7 @@ getStream store key = do
     value -> throwSTM (TypeMismatch $ "Expected stream, but got: " <> show value)
 
 xadd :: Storage -> ByteString -> StreamEntryKey -> [(ByteString, ByteString)] -> IO (Either ByteString ByteString)
+xadd _ _ (Explicit x y) _ | (x, y) <= (0, 0) = pure $ Left "ERR The ID specified in XADD must be greater than 0-0"
 xadd store key entryKey entries = do
   timestamp <- if entryKey == Autogenerate then getTimestampNs else pure 0
   let runStm = do
@@ -45,12 +46,11 @@ xadd store key entryKey entries = do
         let mNewId = newStreamId entryKey timestamp maybeLastId
         case mNewId of
           Nothing | entryKey == Autogenerate -> throwSTM RetryRequest -- бросаем исключение чтобы роллить новый timestamp
-          Just newId | newId <= SE.StreamID 0 0 -> pure $ Left "ERR The ID specified in XADD must be greater than 0-0"
+          Nothing | otherwise -> pure $ Left "ERR The ID specified in XADD is equal or smaller than the target stream top item"
           Just newId | otherwise -> do
             let newStream = addStreamEntry newId entries stream
             setStream store key newStream
             pure $ Right $ show newId
-          Nothing | otherwise -> pure $ Left "ERR The ID specified in XADD is equal or smaller than the target stream top item"
   atomically runStm `E.catch` \case
     RetryRequest -> xadd store key entryKey entries -- повторяем для RetryRequest
     e -> do
