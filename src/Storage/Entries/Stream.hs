@@ -44,6 +44,7 @@ xadd store key entryKey entries = do
         stream <- getStream store key
         let maybeLastId = SE.entryID <$> listToMaybe stream
         let mNewId = newStreamId entryKey timestamp maybeLastId
+
         case mNewId of
           Nothing | entryKey == Autogenerate -> throwSTM RetryRequest -- бросаем исключение чтобы роллить новый timestamp
           Nothing | otherwise -> pure $ Left "ERR The ID specified in XADD is equal or smaller than the target stream top item"
