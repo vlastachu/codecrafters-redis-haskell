@@ -75,14 +75,15 @@ decodeInner "XADD" (BulkString key : BulkString entryKey : keyValueEntries) = ca
   Right parsedEntryKey -> Right $ Xadd key parsedEntryKey $ parseKeyValues keyValueEntries
   Left err -> Left err
 decodeInner "XRANGE" [BulkString key, BulkString from, BulkString to] = Xrange key <$> splitWithDefault from 0 <*> splitWithDefault to maxBound
-  where
-    splitWithDefault :: ByteString -> Word64 -> Either String (Word64, Word64)
-    splitWithDefault s def =
-      case readMaybe . BS.unpack <$> BS.split '-' s of
-        [Just ts] -> Right (ts, def)
-        [Just ts, Just seqN] -> Right (ts, seqN)
-        _ -> Left $ "Can't parse key: " <> show s
+decodeInner "XRANGE" [BulkString key, BulkString "-", BulkString to] = Xrange key (0, 0) <$> splitWithDefault to maxBound
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
+
+splitWithDefault :: ByteString -> Word64 -> Either String (Word64, Word64)
+splitWithDefault s def =
+  case readMaybe . BS.unpack <$> BS.split '-' s of
+    [Just ts] -> Right (ts, def)
+    [Just ts, Just seqN] -> Right (ts, seqN)
+    _ -> Left $ "Can't parse key: " <> show s
 
 fromBulkString :: RedisValue -> Maybe ByteString
 fromBulkString (BulkString b) = Just b
