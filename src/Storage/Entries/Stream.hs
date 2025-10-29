@@ -112,8 +112,9 @@ xreadBlock storage key timeout mEntryId = do
   entryId <- case mEntryId of
     Just i -> pure i
     Nothing -> do
-      ts <- getTimestampMs
-      pure $ SE.StreamID ts 0
+      stream <- atomically $ getStream storage key
+      let maybeID = SE.entryID <$> listToMaybe stream
+      pure $ fromMaybe (SE.StreamID 0 0) maybeID
   when (timeout > 0) $ void . forkIO $ do
     threadDelay (timeout * 1000)
     safeAtomically $ SM.insert True key timeoutMap
