@@ -1,6 +1,7 @@
 module Storage.Entries.String where
 
 import Control.Concurrent
+import qualified Data.ByteString.Char8 as BS
 import qualified StmContainers.Map as SM
 import Storage.Definition
 import qualified Storage.Entry as SE
@@ -20,11 +21,25 @@ setDestroyTimer store key msec = do
       SM.delete key (storeMap store)
   pure ()
 
+getValueSTM :: Storage -> ByteString -> STM (Maybe ByteString)
+getValueSTM store key = do
+  mVal <- SM.lookup key (storeMap store)
+  case mVal of
+    Just (SE.String val) -> pure $ Just val
+    Nothing -> pure Nothing
+    other -> throwSTM (TypeMismatch $ "Expected string, but got " <> show other)
+
 getValue :: Storage -> ByteString -> IO (Maybe ByteString)
-getValue store key =
+getValue store key = defaultAtomically Nothing $ getValueSTM store key
+
+incValue :: Storage -> ByteString -> IO (Maybe Int)
+incValue store key =
   defaultAtomically Nothing $ do
-    mVal <- SM.lookup key (storeMap store)
-    case mVal of
-      Just (SE.String val) -> pure $ Just val
+    mVal <- getValueSTM store key
+    let val = fromMaybe "0" mVal
+    let toInt i = readMaybe $ BS.unpack i
+    case (+ 1) <$> toInt val of
+      Just i -> do
+        SM.insert (SE.String $ show i) key (storeMap store)
+        pure $ Just i
       Nothing -> pure Nothing
-      other -> throwSTM (TypeMismatch $ "Expected string, but got " <> show other)

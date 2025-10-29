@@ -1,5 +1,6 @@
 module Logic.CommandHandler where
 
+import Data.Protocol.Types (RedisValue (NilString))
 import Data.Request
 import Data.Response
 import qualified Storage.Entry as SE
@@ -55,6 +56,11 @@ handleCommand store (XreadBlock key mTimeout entryId) = do
   pure $ case entries of
     Nothing -> RawNilArray
     Just e -> RawArray [RawArray [RawString key, RawArray $ formatStreamEntry <$> e]]
+handleCommand store (Incr key) = do
+  mVal <- incValue store key
+  case mVal of
+    Just val -> pure $ RawString $ show val
+    Nothing -> pure Nil
 
 formatKeyValue :: (ByteString, ByteString) -> [Response]
 formatKeyValue (key', value) = [RawString key', RawString value]

@@ -23,6 +23,8 @@ data Request
   | Xrange ByteString SE.StreamID SE.StreamID
   | Xread [(ByteString, SE.StreamID)]
   | XreadBlock ByteString Int (Maybe SE.StreamID)
+  | ---- Transactions
+    Incr ByteString
   deriving (Show, Eq)
 
 data StreamEntryKey
@@ -81,6 +83,9 @@ decodeInner "XREAD" (_ : keysIds) = do
       let (keys, ids) = splitAt (n `div` 2) xs
       streamIds <- mapM (splitWithDefault 0) ids
       return $ Xread (zip keys streamIds)
+
+----------------_TRANSACTIONS----
+decodeInner "INCR" [BulkString key] = Right $ Incr key
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
 read :: forall a. (Read a) => ByteString -> Either Text a
