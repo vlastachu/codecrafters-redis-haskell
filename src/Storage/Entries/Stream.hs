@@ -93,3 +93,4 @@ xrange' storage key from to = defaultAtomically [] $ do
     stream
       & dropWhile (\(SE.StreamEntry entryId _) -> entryId > to)
       & takeWhile (\(SE.StreamEntry entryId _) -> entryId >= from)
+      & reverse
