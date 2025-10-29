@@ -78,7 +78,7 @@ decodeInner "XRANGE" [BulkString key, BulkString "-", BulkString "+"] = Right $ 
 decodeInner "XRANGE" [BulkString key, BulkString "-", BulkString to] = Xrange key (0, 0) <$> splitWithDefault to maxBound
 decodeInner "XRANGE" [BulkString key, BulkString from, BulkString "+"] = (\f -> Xrange key f (maxBound, maxBound)) <$> splitWithDefault from 0
 decodeInner "XRANGE" [BulkString key, BulkString from, BulkString to] = Xrange key <$> splitWithDefault from 0 <*> splitWithDefault to maxBound
-decodeInner "XREAD" [BulkString "STREAMS", BulkString key, BulkString from] = Xread key <$> splitWithDefault from 0
+decodeInner "XREAD" [BulkString _, BulkString key, BulkString from] = Xread key <$> splitWithDefault from 0
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
 splitWithDefault :: ByteString -> Word64 -> Either String (Word64, Word64)
