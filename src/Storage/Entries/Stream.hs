@@ -84,13 +84,22 @@ newStreamId key timestamp mLast = case key of
     explicitStreamId ts seqNum Nothing = Just $ SE.StreamID ts seqNum
 
 xrange :: Storage -> ByteString -> (Word64, Word64) -> (Word64, Word64) -> IO [SE.StreamEntry]
-xrange storage key (fromt, fromsn) (tot, tosn) = xrange' storage key (SE.StreamID fromt fromsn) (SE.StreamID tot tosn)
+xrange storage_ key_ (fromt, fromsn) (tot, tosn) = xrange' storage_ key_ (SE.StreamID fromt fromsn) (SE.StreamID tot tosn)
+  where
+    xrange' :: Storage -> ByteString -> SE.StreamID -> SE.StreamID -> IO [SE.StreamEntry]
+    xrange' storage key from to = defaultAtomically [] $ do
+      stream <- getStream storage key
+      pure $
+        stream
+          & dropWhile (\(SE.StreamEntry entryId _) -> entryId > to)
+          & takeWhile (\(SE.StreamEntry entryId _) -> entryId >= from)
+          & reverse
 
-xrange' :: Storage -> ByteString -> SE.StreamID -> SE.StreamID -> IO [SE.StreamEntry]
-xrange' storage key from to = defaultAtomically [] $ do
+xread :: Storage -> ByteString -> (Word64, Word64) -> IO [SE.StreamEntry]
+xread storage key (fromt, fromsn) = defaultAtomically [] $ do
+  let from = SE.StreamID fromt fromsn
   stream <- getStream storage key
   pure $
     stream
-      & dropWhile (\(SE.StreamEntry entryId _) -> entryId > to)
       & takeWhile (\(SE.StreamEntry entryId _) -> entryId >= from)
       & reverse

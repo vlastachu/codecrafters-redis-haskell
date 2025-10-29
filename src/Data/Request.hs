@@ -3,7 +3,6 @@ module Data.Request where
 import qualified Data.ByteString.Char8 as BS
 import Data.Char (toUpper)
 import Data.Protocol.Types
-import Data.Text (splitOn)
 
 data Request
   = Ping
@@ -21,6 +20,7 @@ data Request
     Type ByteString
   | Xadd ByteString StreamEntryKey [(ByteString, ByteString)]
   | Xrange ByteString (Word64, Word64) (Word64, Word64)
+  | Xread ByteString (Word64, Word64)
   deriving (Show, Eq)
 
 data StreamEntryKey
@@ -78,6 +78,7 @@ decodeInner "XRANGE" [BulkString key, BulkString "-", BulkString "+"] = Right $ 
 decodeInner "XRANGE" [BulkString key, BulkString "-", BulkString to] = Xrange key (0, 0) <$> splitWithDefault to maxBound
 decodeInner "XRANGE" [BulkString key, BulkString from, BulkString "+"] = (\f -> Xrange key f (maxBound, maxBound)) <$> splitWithDefault from 0
 decodeInner "XRANGE" [BulkString key, BulkString from, BulkString to] = Xrange key <$> splitWithDefault from 0 <*> splitWithDefault to maxBound
+decodeInner "XREAD" [BulkString key, BulkString from] = Xread key <$> splitWithDefault from 0
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
 splitWithDefault :: ByteString -> Word64 -> Either String (Word64, Word64)
