@@ -74,8 +74,10 @@ decodeInner "BLPOP" [BulkString key, BulkString timeout] =
 decodeInner "XADD" (BulkString key : BulkString entryKey : keyValueEntries) = case parseEntryKey entryKey of
   Right parsedEntryKey -> Right $ Xadd key parsedEntryKey $ parseKeyValues keyValueEntries
   Left err -> Left err
-decodeInner "XRANGE" [BulkString key, BulkString from, BulkString to] = Xrange key <$> splitWithDefault from 0 <*> splitWithDefault to maxBound
+decodeInner "XRANGE" [BulkString key, BulkString "-", BulkString "+"] = Right $ Xrange key (0, 0) (maxBound, maxBound)
 decodeInner "XRANGE" [BulkString key, BulkString "-", BulkString to] = Xrange key (0, 0) <$> splitWithDefault to maxBound
+decodeInner "XRANGE" [BulkString key, BulkString from, BulkString "+"] = (\f -> Xrange key f (maxBound, maxBound)) <$> splitWithDefault from 0
+decodeInner "XRANGE" [BulkString key, BulkString from, BulkString to] = Xrange key <$> splitWithDefault from 0 <*> splitWithDefault to maxBound
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
 splitWithDefault :: ByteString -> Word64 -> Either String (Word64, Word64)
