@@ -102,7 +102,7 @@ readStream storage (key, from) = do
   stream <- getStream storage key
   let streamTail =
         stream
-          & takeWhile (\(SE.StreamEntry entryId _) -> entryId >= from)
+          & takeWhile (\(SE.StreamEntry entryId _) -> entryId > from)
           & reverse
   pure (key, streamTail)
 
