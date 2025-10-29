@@ -2,6 +2,7 @@ module Logic.CommandHandler where
 
 import Data.Request
 import Data.Response
+import qualified Storage.Entry as SE
 import Storage.Storage
 
 handleCommand :: Storage -> Request -> IO Response
@@ -37,8 +38,13 @@ handleCommand store (LPop key len) = do
 handleCommand store (BLPop key timeout) = do
   item <- blpop store key timeout
   pure $ maybe RawNilArray (RawArray . (RawString <$>)) item
-handleCommand store (XADD key entryKey entries) = do
+handleCommand store (Xadd key entryKey entries) = do
   mTimestamp <- xadd store key entryKey entries
   case mTimestamp of
     Right timestamp -> pure $ RawString timestamp
     Left err -> pure $ Error err
+handleCommand store (Xrange key from to) = do
+  range <- xrange store key from to
+  let formatKeyValue (key', value) = [RawString key', RawString value]
+  let formatStreamEntry (SE.StreamEntry entryId keyValues) = RawArray [RawString (show entryId), RawArray $ formatKeyValue =<< keyValues]
+  pure $ RawArray $ map formatStreamEntry range

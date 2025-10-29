@@ -3,6 +3,7 @@ module Data.Request where
 import qualified Data.ByteString.Char8 as BS
 import Data.Char (toUpper)
 import Data.Protocol.Types
+import Data.Text (splitOn)
 
 data Request
   = Ping
@@ -18,7 +19,8 @@ data Request
   | BLPop ByteString Float
   | -- STREAM Commands
     Type ByteString
-  | XADD ByteString StreamEntryKey [(ByteString, ByteString)]
+  | Xadd ByteString StreamEntryKey [(ByteString, ByteString)]
+  | Xrange ByteString (Word64, Word64) (Word64, Word64)
   deriving (Show, Eq)
 
 data StreamEntryKey
@@ -70,8 +72,16 @@ decodeInner "BLPOP" [BulkString key, BulkString timeout] =
 ----------------------------
 -------STREAMS--------------
 decodeInner "XADD" (BulkString key : BulkString entryKey : keyValueEntries) = case parseEntryKey entryKey of
-  Right parsedEntryKey -> Right $ XADD key parsedEntryKey $ parseKeyValues keyValueEntries
+  Right parsedEntryKey -> Right $ Xadd key parsedEntryKey $ parseKeyValues keyValueEntries
   Left err -> Left err
+decodeInner "XRANGE" [BulkString key, BulkString from, BulkString to] = Xrange key <$> splitWithDefault from 0 <*> splitWithDefault to maxBound
+  where
+    splitWithDefault :: ByteString -> Word64 -> Either String (Word64, Word64)
+    splitWithDefault s def =
+      case readMaybe . BS.unpack <$> BS.split '-' s of
+        [Just ts] -> Right (ts, def)
+        [Just ts, Just seqN] -> Right (ts, seqN)
+        _ -> Left $ "Can't parse key: " <> show s
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
 fromBulkString :: RedisValue -> Maybe ByteString
