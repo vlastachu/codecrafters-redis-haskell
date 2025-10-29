@@ -22,7 +22,7 @@ data Request
   | Xadd ByteString StreamEntryKey [(ByteString, ByteString)]
   | Xrange ByteString SE.StreamID SE.StreamID
   | Xread [(ByteString, SE.StreamID)]
-  | XreadBlock ByteString Int SE.StreamID
+  | XreadBlock ByteString Int (Maybe SE.StreamID)
   deriving (Show, Eq)
 
 data StreamEntryKey
@@ -67,7 +67,10 @@ decodeInner "XRANGE" [BulkString key, BulkString from, BulkString "+"] = (\f -> 
 decodeInner "XRANGE" [BulkString key, BulkString from, BulkString to] = Xrange key <$> splitWithDefault 0 from <*> splitWithDefault maxBound to
 decodeInner "XREAD" [BulkString block, BulkString ms, _, BulkString key, BulkString from] | bsUpper block == "BLOCK" = do
   msInt <- read ms
-  entryId <- splitWithDefault 0 from
+  entryId <-
+    if from == "$"
+      then pure Nothing
+      else Just <$> splitWithDefault 0 from
   pure $ XreadBlock key msInt entryId
 decodeInner "XREAD" (_ : keysIds) = do
   xs <- fromBulkStrings keysIds

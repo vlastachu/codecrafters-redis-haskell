@@ -106,9 +106,14 @@ readStream storage (key, from) = do
           & reverse
   pure (key, streamTail)
 
-xreadBlock :: Storage -> ByteString -> Int -> SE.StreamID -> IO (Maybe [SE.StreamEntry])
-xreadBlock storage key timeout entryId = do
+xreadBlock :: Storage -> ByteString -> Int -> Maybe SE.StreamID -> IO (Maybe [SE.StreamEntry])
+xreadBlock storage key timeout mEntryId = do
   let timeoutMap = blockedWaiters storage
+  entryId <- case mEntryId of
+    Just i -> pure i
+    Nothing -> do
+      ts <- getTimestampMs
+      pure $ SE.StreamID ts 0
   when (timeout > 0) $ void . forkIO $ do
     threadDelay (timeout * 1000)
     safeAtomically $ SM.insert True key timeoutMap
