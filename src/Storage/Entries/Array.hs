@@ -57,7 +57,7 @@ getRange store key from to = defaultAtomically [] $ do
 
 blpop :: Storage -> ByteString -> Float -> IO (Maybe [ByteString])
 blpop store key timeout = do
-  let timeoutMap = blpopWaiters store
+  let timeoutMap = blockedWaiters store
   when (timeout > 0) $ void . forkIO $ do
     threadDelay (round $ timeout * 1000 * 1000)
     safeAtomically $ SM.insert True key timeoutMap

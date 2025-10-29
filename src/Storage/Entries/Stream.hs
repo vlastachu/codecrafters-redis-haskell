@@ -1,6 +1,8 @@
 module Storage.Entries.Stream where
 
+import Control.Concurrent
 import qualified Control.Exception as E
+import qualified Control.Monad.STM as STM
 import Data.Request (StreamEntryKey (..))
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import qualified StmContainers.Map as SM
@@ -93,13 +95,32 @@ xrange storage key from to = defaultAtomically [] $ do
       & reverse
 
 xread :: Storage -> [(ByteString, SE.StreamID)] -> IO [(ByteString, [SE.StreamEntry])]
-xread storage keyIds = defaultAtomically [] $ mapM readStream keyIds
-  where
-    readStream :: (ByteString, SE.StreamID) -> STM (ByteString, [SE.StreamEntry])
-    readStream (key, from) = do
-      stream <- getStream storage key
-      let streamTail =
-            stream
-              & takeWhile (\(SE.StreamEntry entryId _) -> entryId >= from)
-              & reverse
-      pure (key, streamTail)
+xread storage keyIds = defaultAtomically [] $ mapM (readStream storage) keyIds
+
+readStream :: Storage -> (ByteString, SE.StreamID) -> STM (ByteString, [SE.StreamEntry])
+readStream storage (key, from) = do
+  stream <- getStream storage key
+  let streamTail =
+        stream
+          & takeWhile (\(SE.StreamEntry entryId _) -> entryId >= from)
+          & reverse
+  pure (key, streamTail)
+
+xreadBlock :: Storage -> ByteString -> Int -> SE.StreamID -> IO (Maybe [SE.StreamEntry])
+xreadBlock storage key timeout entryId = do
+  let timeoutMap = blockedWaiters storage
+  when (timeout > 0) $ void . forkIO $ do
+    threadDelay (timeout * 1000)
+    safeAtomically $ SM.insert True key timeoutMap
+  defaultAtomically Nothing $ do
+    (_, entries) <- readStream storage (key, entryId)
+    if entries /= []
+      then pure (Just entries)
+      else
+        if timeout > 0
+          then do
+            mTimeout <- SM.lookup key timeoutMap
+            case mTimeout of
+              Just True -> pure Nothing
+              _ -> STM.retry
+          else STM.retry

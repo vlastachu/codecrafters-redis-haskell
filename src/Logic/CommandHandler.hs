@@ -50,6 +50,11 @@ handleCommand store (Xread keyIds) = do
   keyEntries <- xread store keyIds
   let keyEntriesToArray (key, entries) = RawArray [RawString key, RawArray $ formatStreamEntry <$> entries]
   pure $ RawArray $ keyEntriesToArray <$> keyEntries
+handleCommand store (XreadBlock key timeout entryId) = do
+  entries <- xreadBlock store key timeout entryId
+  pure $ case entries of
+    Nothing -> RawNilArray
+    Just e -> RawArray [RawArray [RawString key, RawArray $ formatStreamEntry <$> e]]
 
 formatKeyValue :: (ByteString, ByteString) -> [Response]
 formatKeyValue (key', value) = [RawString key', RawString value]

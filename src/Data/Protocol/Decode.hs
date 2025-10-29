@@ -2,6 +2,7 @@ module Data.Protocol.Decode (decode, parseRedisValue) where
 
 import Data.Attoparsec.ByteString.Char8 as C8
 import Data.Protocol.Types
+import qualified Data.Text as T
 import Prelude hiding (take)
 
 isEndOfLine_ :: Char -> Bool
@@ -52,5 +53,5 @@ arrayValue = do
 -- Обёртка вокруг parseOnly
 -------------------------------------------------------
 
-decode :: ByteString -> Either String RedisValue
-decode = parseOnly parseRedisValue
+decode :: ByteString -> Either Text RedisValue
+decode = first T.pack . parseOnly parseRedisValue

@@ -10,11 +10,11 @@ import Data.Protocol.Encode
 import Data.Protocol.Types
 import Data.Request
 import Data.Response
+import qualified Data.Text.IO as TIO
 import Logic.CommandHandler
 import Network.Socket
 import Network.Socket.ByteString (recv, sendAll)
 import Storage.Storage
-import System.IO (hPutStrLn)
 
 defaultRedisPort :: ServiceName
 defaultRedisPort = "6379"
@@ -24,7 +24,7 @@ runServer :: Storage -> IO ()
 runServer store = do
   addr <- resolve
   sock <- open addr
-  hPutStrLn stderr $ "Server listening on port " ++ defaultRedisPort
+  TIO.hPutStrLn stderr $ "Server listening on port " <> show defaultRedisPort
   forever $ do
     (conn, _) <- accept sock
     -- hPutStrLn stderr  $ "Connection from " ++ show peer
@@ -44,7 +44,7 @@ runServer store = do
 
     close'' conn someExc = do
       close conn
-      hPutStrLn stderr $ "Connection" <> show conn <> " closed by exceptio: " <> show someExc
+      TIO.hPutStrLn stderr $ "Connection" <> show conn <> " closed by exceptio: " <> show someExc
 
 -- | Обработка одного клиента
 handleClient :: Socket -> Storage -> IO ()
@@ -57,7 +57,7 @@ handleClient sock store = forever $ do
       case decodeRequest =<< decode msg of
         Left err -> do
           sendAll sock (encode $ ErrorString $ "decode error: " <> show err)
-          hPutStrLn stderr $ "parse failed: " <> show msg <> "; error: " <> err
+          TIO.hPutStrLn stderr $ "parse failed: " <> show msg <> "; error: " <> err
         Right req -> do
           resp <- executeCommand store req
           resp `seq` sendAll sock resp

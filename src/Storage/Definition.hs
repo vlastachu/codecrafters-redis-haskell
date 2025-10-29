@@ -1,14 +1,12 @@
 module Storage.Definition where
 
 import qualified Control.Exception as E
-import Data.Time.Clock
 import qualified StmContainers.Map as SM
 import qualified Storage.Entry as SE
 
 data Storage = Storage
   { storeMap :: !(SM.Map ByteString SE.StorageEntry),
-    destroyTimerMap :: !(SM.Map ByteString UTCTime),
-    blpopWaiters :: !(SM.Map ByteString Bool)
+    blockedWaiters :: !(SM.Map ByteString Bool)
   }
 
 data StorageError
@@ -30,7 +28,7 @@ defaultAtomically def action =
 -- | Создать новое хранилище
 newStorage :: IO Storage
 newStorage =
-  Storage <$> SM.newIO <*> SM.newIO <*> SM.newIO
+  Storage <$> SM.newIO <*> SM.newIO
 
 getType :: Storage -> ByteString -> IO ByteString
 getType store key = defaultAtomically "none" $ do
