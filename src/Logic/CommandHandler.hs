@@ -44,12 +44,15 @@ handleCommand store (Xadd key entryKey entries) = do
     Right timestamp -> pure $ RawString timestamp
     Left err -> pure $ Error err
 handleCommand store (Xrange key from to) = do
-  range <- xrange store key from to
-  let formatKeyValue (key', value) = [RawString key', RawString value]
-  let formatStreamEntry (SE.StreamEntry entryId keyValues) = RawArray [RawString (show entryId), RawArray $ formatKeyValue =<< keyValues]
-  pure $ RawArray $ map formatStreamEntry range
-handleCommand store (Xread key from) = do
-  range <- xread store key from
-  let formatKeyValue (key', value) = [RawString key', RawString value]
-  let formatStreamEntry (SE.StreamEntry entryId keyValues) = RawArray [RawString (show entryId), RawArray $ formatKeyValue =<< keyValues]
-  pure $ RawArray [RawArray [RawString key, RawArray $ map formatStreamEntry range]]
+  entries <- xrange store key from to
+  pure $ RawArray $ map formatStreamEntry entries
+handleCommand store (Xread keyIds) = do
+  keyEntries <- xread store keyIds
+  let keyEntriesToArray (key, entries) = RawArray [RawString key, RawArray $ formatStreamEntry <$> entries]
+  pure $ RawArray $ keyEntriesToArray <$> keyEntries
+
+formatKeyValue :: (ByteString, ByteString) -> [Response]
+formatKeyValue (key', value) = [RawString key', RawString value]
+
+formatStreamEntry :: SE.StreamEntry -> Response
+formatStreamEntry (SE.StreamEntry entryId keyValues) = RawArray [RawString (show entryId), RawArray $ formatKeyValue =<< keyValues]

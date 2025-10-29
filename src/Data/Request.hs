@@ -3,6 +3,7 @@ module Data.Request where
 import qualified Data.ByteString.Char8 as BS
 import Data.Char (toUpper)
 import Data.Protocol.Types
+import qualified Storage.Entry as SE
 
 data Request
   = Ping
@@ -19,8 +20,8 @@ data Request
   | -- STREAM Commands
     Type ByteString
   | Xadd ByteString StreamEntryKey [(ByteString, ByteString)]
-  | Xrange ByteString (Word64, Word64) (Word64, Word64)
-  | Xread ByteString (Word64, Word64)
+  | Xrange ByteString SE.StreamID SE.StreamID
+  | Xread [(ByteString, SE.StreamID)]
   deriving (Show, Eq)
 
 data StreamEntryKey
@@ -47,14 +48,8 @@ decodeInner "SET" (BulkString key : BulkString val : rest) =
     justExp -> Right (Set key val justExp)
 ----------------------------
 -------ARRAYS---------------
-decodeInner "RPUSH" (BulkString key : vals) =
-  case traverse fromBulkString vals of
-    Just bsList -> Right $ RPush key bsList
-    Nothing -> Left "can't decode RPUSH args"
-decodeInner "LPUSH" (BulkString key : vals) =
-  case traverse fromBulkString vals of
-    Just bsList -> Right $ LPush key bsList
-    Nothing -> Left "can't decode LPUSH args"
+decodeInner "RPUSH" (BulkString key : vals) = RPush key <$> fromBulkStrings vals
+decodeInner "LPUSH" (BulkString key : vals) = LPush key <$> fromBulkStrings vals
 decodeInner "LRANGE" [BulkString key, BulkString from, BulkString to] =
   case (BS.readInt from, BS.readInt to) of
     (Just (from', _), Just (to', _)) -> Right $ LRange key from' to'
@@ -74,23 +69,34 @@ decodeInner "BLPOP" [BulkString key, BulkString timeout] =
 decodeInner "XADD" (BulkString key : BulkString entryKey : keyValueEntries) = case parseEntryKey entryKey of
   Right parsedEntryKey -> Right $ Xadd key parsedEntryKey $ parseKeyValues keyValueEntries
   Left err -> Left err
-decodeInner "XRANGE" [BulkString key, BulkString "-", BulkString "+"] = Right $ Xrange key (0, 0) (maxBound, maxBound)
-decodeInner "XRANGE" [BulkString key, BulkString "-", BulkString to] = Xrange key (0, 0) <$> splitWithDefault to maxBound
-decodeInner "XRANGE" [BulkString key, BulkString from, BulkString "+"] = (\f -> Xrange key f (maxBound, maxBound)) <$> splitWithDefault from 0
-decodeInner "XRANGE" [BulkString key, BulkString from, BulkString to] = Xrange key <$> splitWithDefault from 0 <*> splitWithDefault to maxBound
-decodeInner "XREAD" [BulkString _, BulkString key, BulkString from] = Xread key <$> splitWithDefault from 0
+decodeInner "XRANGE" [BulkString key, BulkString "-", BulkString "+"] = Right $ Xrange key (SE.StreamID 0 0) (SE.StreamID maxBound maxBound)
+decodeInner "XRANGE" [BulkString key, BulkString "-", BulkString to] = Xrange key (SE.StreamID 0 0) <$> splitWithDefault maxBound to
+decodeInner "XRANGE" [BulkString key, BulkString from, BulkString "+"] = (\f -> Xrange key f (SE.StreamID maxBound maxBound)) <$> splitWithDefault 0 from
+decodeInner "XRANGE" [BulkString key, BulkString from, BulkString to] = Xrange key <$> splitWithDefault 0 from <*> splitWithDefault maxBound to
+decodeInner "XREAD" (BulkString _ : keysIds) = do
+  xs <- fromBulkStrings keysIds
+  let n = length xs
+  if odd n
+    then Left "XREAD keysIds is odd"
+    else do
+      let (keys, ids) = splitAt (n `div` 2) xs
+      streamIds <- mapM (splitWithDefault 0) ids
+      return $ Xread (zip keys streamIds)
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
-splitWithDefault :: ByteString -> Word64 -> Either String (Word64, Word64)
-splitWithDefault s def =
+splitWithDefault :: Word64 -> ByteString -> Either String SE.StreamID
+splitWithDefault def s =
   case readMaybe . BS.unpack <$> BS.split '-' s of
-    [Just ts] -> Right (ts, def)
-    [Just ts, Just seqN] -> Right (ts, seqN)
+    [Just ts] -> Right (SE.StreamID ts def)
+    [Just ts, Just seqN] -> Right (SE.StreamID ts seqN)
     _ -> Left $ "Can't parse key: " <> show s
 
-fromBulkString :: RedisValue -> Maybe ByteString
-fromBulkString (BulkString b) = Just b
-fromBulkString _ = Nothing
+fromBulkStrings :: [RedisValue] -> Either String [ByteString]
+fromBulkStrings = mapM fromBulkString
+
+fromBulkString :: RedisValue -> Either String ByteString
+fromBulkString (BulkString b) = Right b
+fromBulkString e = Left $ "BulkString expected but got " <> show e
 
 parseEntryKey :: ByteString -> Either String StreamEntryKey
 parseEntryKey "*" = Right Autogenerate
