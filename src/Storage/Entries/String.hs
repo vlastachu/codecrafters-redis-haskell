@@ -32,7 +32,7 @@ getValueSTM store key = do
 getValue :: Storage -> ByteString -> IO (Maybe ByteString)
 getValue store key = defaultAtomically Nothing $ getValueSTM store key
 
-incValue :: Storage -> ByteString -> IO (Maybe Int)
+incValue :: Storage -> ByteString -> IO (Maybe Integer)
 incValue store key =
   defaultAtomically Nothing $ do
     mVal <- getValueSTM store key

@@ -58,7 +58,7 @@ handleCommand store (XreadBlock key mTimeout entryId) = do
     Just e -> RawArray [RawArray [RawString key, RawArray $ formatStreamEntry <$> e]]
 handleCommand store (Incr key) = do
   mVal <- incValue store key
-  pure $ maybe Nil (RawString . show) mVal
+  pure $ maybe Nil RawInteger mVal
 
 formatKeyValue :: (ByteString, ByteString) -> [Response]
 formatKeyValue (key', value) = [RawString key', RawString value]
