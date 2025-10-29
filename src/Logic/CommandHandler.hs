@@ -52,4 +52,4 @@ handleCommand store (Xread key from) = do
   range <- xread store key from
   let formatKeyValue (key', value) = [RawString key', RawString value]
   let formatStreamEntry (SE.StreamEntry entryId keyValues) = RawArray [RawString (show entryId), RawArray $ formatKeyValue =<< keyValues]
-  pure $ RawArray [RawArray $ map formatStreamEntry range]
+  pure $ RawArray [RawArray [RawString key, RawArray $ map formatStreamEntry range]]
