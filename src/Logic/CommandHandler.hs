@@ -58,7 +58,8 @@ handleCommand store (XreadBlock key mTimeout entryId) = do
     Just e -> RawArray [RawArray [RawString key, RawArray $ formatStreamEntry <$> e]]
 handleCommand store (Incr key) = do
   mVal <- incValue store key
-  pure $ maybe Nil RawInteger mVal
+  let error = Error "ERR value is not an integer or out of range"
+  pure $ maybe error RawInteger mVal
 
 formatKeyValue :: (ByteString, ByteString) -> [Response]
 formatKeyValue (key', value) = [RawString key', RawString value]
