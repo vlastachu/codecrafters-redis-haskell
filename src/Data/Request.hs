@@ -33,9 +33,6 @@ data StreamEntryKey
   | Autogenerate
   deriving (Show, Eq)
 
-bsUpper :: ByteString -> ByteString
-bsUpper = BS.map toUpper
-
 decodeRequest :: RedisValue -> Either Text Request
 decodeRequest (Array (BulkString cmd : args)) = decodeInner (bsUpper cmd) args
 decodeRequest _ = Left "Expected Array with first element BulkString as command pattern"
@@ -67,7 +64,7 @@ decodeInner "XRANGE" [BulkString key, BulkString "-", BulkString "+"] = Right $ 
 decodeInner "XRANGE" [BulkString key, BulkString "-", BulkString to] = Xrange key (SE.StreamID 0 0) <$> splitWithDefault maxBound to
 decodeInner "XRANGE" [BulkString key, BulkString from, BulkString "+"] = (\f -> Xrange key f (SE.StreamID maxBound maxBound)) <$> splitWithDefault 0 from
 decodeInner "XRANGE" [BulkString key, BulkString from, BulkString to] = Xrange key <$> splitWithDefault 0 from <*> splitWithDefault maxBound to
-decodeInner "XREAD" [BulkString block, BulkString ms, _, BulkString key, BulkString from] | bsUpper block == "BLOCK" = do
+decodeInner "XREAD" [BulkString block, BulkString ms, _, BulkString key, BulkString from] | block ≈ "BLOCK" = do
   msInt <- read ms
   entryId <-
     if from == "$"
@@ -120,6 +117,13 @@ parseKeyValues _ = []
 -- Парсер expiration
 parseExpiration :: [RedisValue] -> Either Text Int
 parseExpiration [BulkString cmd, BulkString numBS]
-  | bsUpper cmd == "EX" = (1000 *) <$> read numBS
-  | bsUpper cmd == "PX" = read numBS
+  | cmd ≈ "EX" = (1000 *) <$> read numBS
+  | cmd ≈ "PX" = read numBS
 parseExpiration _ = Left "EX/PX expected"
+
+bsUpper :: ByteString -> ByteString
+bsUpper = BS.map toUpper
+
+-- case insensitive (right operand should be uppercased) equality check
+(≈) :: ByteString -> ByteString -> Bool
+(≈) bs1 bs2 = bsUpper bs1 == bs2
