@@ -4,6 +4,7 @@ module Network.Network
 where
 
 import Control.Concurrent (forkFinally)
+import Data.Attoparsec.ByteString (IResult (..), parse)
 import qualified Data.ByteString.Char8 as BS
 import Data.Protocol.Decode
 import Data.Protocol.Encode
@@ -44,26 +45,34 @@ runServer store = do
 
     close'' conn someExc = do
       close conn
-      TIO.hPutStrLn stderr $ "Connection" <> show conn <> " closed by exceptio: " <> show someExc
+      -- мешает бенчмаркам
+      -- TIO.hPutStrLn stderr $ "Connection" <> show conn <> " closed by exceptio: " <> show someExc
+      pure ()
 
 -- | Обработка одного клиента
 handleClient :: Socket -> Storage -> IO ()
-handleClient sock store = forever $ do
-  msg <- recv sock 4096
-  msg `seq` pure ()
-  if BS.null msg
-    then pure () -- hPutStrLn stderr  "Connection closed"
-    else do
-      case decodeRequest =<< decode msg of
-        Left err -> do
-          sendAll sock (encode $ ErrorString $ "decode error: " <> show err)
-          TIO.hPutStrLn stderr $ "parse failed: " <> show msg <> "; error: " <> err
-        Right req -> do
-          resp <- executeCommand store req
-          resp `seq` sendAll sock resp
+handleClient sock store = go BS.empty
+  where
+    go buffer = do
+      chunk <- recv sock 512
+      if BS.null chunk
+        then pure () -- соединение закрыто
+        else do
+          let input = buffer <> chunk
+          case parse parseRedisValue input of
+            Done rest value -> do
+              resp <- executeCommand store (decodeRequest value)
+              sendAll sock resp
+              go rest
+            Partial _cont -> do
+              -- не хватило данных — ждём следующий кусок, просто оставляем buffer
+              go input
+            Fail _ _ err -> do
+              sendAll sock (encode $ ErrorString $ "parse error: " <> show err)
+              TIO.hPutStrLn stderr $ "parse failed: " <> show input <> "; error: " <> show err
 
--- | Выполнить команду и вернуть RESP-ответ
-executeCommand :: Storage -> Request -> IO BS.ByteString
-executeCommand store req = do
+executeCommand :: Storage -> Either Text Request -> IO BS.ByteString
+executeCommand _ (Left err) = pure $ encode $ ErrorString $ show err
+executeCommand store (Right req) = do
   response <- handleCommand store req
   pure $ encode $ encodeResponse response
