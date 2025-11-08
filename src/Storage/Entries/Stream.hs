@@ -58,7 +58,7 @@ xadd store key entryKey entries = do
   atomically runStm `E.catch` \case
     RetryRequest -> xadd store key entryKey entries -- повторяем для RetryRequest
     e -> do
-      putStrLn $ "[StorageError] " <> show (e :: StorageError)
+      putStrLn $ "[AppError] " <> show (e :: AppError)
       pure $ Left $ show e
 
 newStreamId :: StreamEntryKey -> Word64 -> Maybe SE.StreamID -> Maybe SE.StreamID

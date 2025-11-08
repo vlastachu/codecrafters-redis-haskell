@@ -1,3 +1,5 @@
+{-# LANGUAGE StrictData #-}
+
 module Data.Request where
 
 import qualified Data.ByteString.Char8 as BS
@@ -81,7 +83,7 @@ decodeInner "XREAD" (_ : keysIds) = do
       streamIds <- mapM (splitWithDefault 0) ids
       return $ Xread (zip keys streamIds)
 
-----------------_TRANSACTIONS----
+----------------TRANSACTIONS----
 decodeInner "INCR" [BulkString key] = Right $ Incr key
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 

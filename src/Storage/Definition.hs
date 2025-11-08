@@ -1,3 +1,5 @@
+{-# LANGUAGE StrictData #-}
+
 module Storage.Definition where
 
 import qualified Control.Exception as E
@@ -5,11 +7,11 @@ import qualified StmContainers.Map as SM
 import qualified Storage.Entry as SE
 
 data Storage = Storage
-  { storeMap :: !(SM.Map ByteString SE.StorageEntry),
-    blockedWaiters :: !(SM.Map ByteString Bool)
+  { storeMap :: SM.Map ByteString SE.StorageEntry,
+    blockedWaiters :: SM.Map ByteString Bool
   }
 
-data StorageError
+data AppError
   = TypeMismatch String
   | NotFound String
   | RetryRequest
@@ -21,8 +23,8 @@ safeAtomically = defaultAtomically ()
 defaultAtomically :: a -> STM a -> IO a
 defaultAtomically def action =
   atomically action
-    `E.catch` \(e :: StorageError) -> do
-      putStrLn $ "[StorageError] " <> show e
+    `E.catch` \(e :: AppError) -> do
+      putStrLn $ "[AppError] " <> show e
       pure def
 
 -- | Создать новое хранилище
