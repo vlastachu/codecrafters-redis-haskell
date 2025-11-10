@@ -27,6 +27,7 @@ data Request
   | XreadBlock ByteString Int (Maybe SE.StreamID)
   | ---- Transactions
     Incr ByteString
+  | Multi
   deriving (Show, Eq)
 
 data StreamEntryKey
@@ -85,6 +86,7 @@ decodeInner "XREAD" (_ : keysIds) = do
 
 ----------------TRANSACTIONS----
 decodeInner "INCR" [BulkString key] = Right $ Incr key
+decodeInner "MULTI" [] = Right Multi
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
 read :: forall a. (Read a) => ByteString -> Either Text a

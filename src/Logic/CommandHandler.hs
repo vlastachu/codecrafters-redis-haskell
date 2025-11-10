@@ -60,6 +60,8 @@ handleCommand store (Incr key) = do
   mVal <- incValue store key
   let error = Error "ERR value is not an integer or out of range"
   pure $ maybe error RawInteger mVal
+handleCommand store Multi = do
+  pure OK
 
 formatKeyValue :: (ByteString, ByteString) -> [Response]
 formatKeyValue (key', value) = [RawString key', RawString value]
