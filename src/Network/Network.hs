@@ -71,6 +71,7 @@ handleClient sock store = do
           loop rest clientState
         _ -> TIO.hPutStrLn stderr "unexpected state"
 
+--
 executeCommand :: Storage -> IORef ClientState -> Either Text Request -> IO BS.ByteString
 executeCommand _ _ (Left err) = pure $ encode $ ErrorString $ show err
 executeCommand store clientState (Right req) = do
