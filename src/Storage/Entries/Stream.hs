@@ -109,15 +109,16 @@ readStream storage (key, from) = do
 xreadBlock :: Storage -> ByteString -> Int -> Maybe SE.StreamID -> IO (Maybe [SE.StreamEntry])
 xreadBlock storage key timeout mEntryId = do
   cancelFlag <- newTVarIO False
+  chosenEntryId <- case mEntryId of
+    Just i -> pure i
+    Nothing -> do
+      stream <- atomically $ getStream storage key
+      let maybeID = SE.entryID <$> listToMaybe stream
+      pure $ fromMaybe (SE.StreamID 0 0) maybeID
   when (timeout > 0) $ void . forkIO $ do
     threadDelay (timeout * 1000)
     safeAtomically $ writeTVar cancelFlag True
   defaultAtomically Nothing $ do
-    topEntryId <- do
-      stream <- getStream storage key
-      pure $ SE.entryID <$> listToMaybe stream
-    let orFirstEntryId = fromMaybe $ SE.StreamID 0 0
-    let chosenEntryId = orFirstEntryId $ mEntryId <|> topEntryId
     (_, entries) <- readStream storage (key, chosenEntryId)
     if entries /= []
       then pure (Just entries)
