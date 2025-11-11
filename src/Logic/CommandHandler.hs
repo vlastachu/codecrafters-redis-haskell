@@ -12,11 +12,15 @@ handleTx _ clientStateRef Multi = do
   startTx clientStateRef
   pure OK
 handleTx store clientStateRef Exec = do
-  finishTx clientStateRef
   clientState <- readIORef clientStateRef
-  forM_ (txs clientState) $
-    \tx -> handleCommand store tx
-  pure OK
+  if isTxReceiving clientState
+    then do
+      finishTx clientStateRef
+      clientState <- readIORef clientStateRef
+      results <- forM (reverse $ txs clientState) $
+        \tx -> handleCommand store tx
+      pure $ RawArray results
+    else pure $ Error "ERR EXEC without MULTI"
 handleTx store clientStateRef other = do
   clientState <- readIORef clientStateRef
   if isTxReceiving clientState
