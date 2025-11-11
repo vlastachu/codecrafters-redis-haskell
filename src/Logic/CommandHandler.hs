@@ -12,6 +12,9 @@ handleTx :: Storage -> IORef ClientState -> Request -> IO Response
 handleTx _ clientStateRef Multi = do
   startTx clientStateRef
   pure OK
+handleTx _ clientStateRef Disgard = do
+  finishTx clientStateRef
+  pure OK
 handleTx store clientStateRef Exec = do
   clientState <- readIORef clientStateRef
   if isTxReceiving clientState
