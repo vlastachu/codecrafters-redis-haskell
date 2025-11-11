@@ -91,6 +91,8 @@ handleCommand store (Incr key) = do
 handleCommand _ Multi = ok
 handleCommand _ Exec = ok
 handleCommand _ Discard = ok
+handleCommand _ Info = pure $ BulkString "redis_version:0.1.0\r\n"
+handleCommand _ Config = pure $ Array [BulkString "databases", BulkString "16"]
 
 formatKeyValue :: (ByteString, ByteString) -> [RedisValue]
 formatKeyValue (key', value) = [BulkString key', BulkString value]

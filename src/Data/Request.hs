@@ -9,6 +9,8 @@ import qualified Storage.Entry as SE
 
 data Request
   = Ping
+  | Info
+  | Config
   | Echo ByteString
   | Get ByteString
   | Set ByteString ByteString (Maybe Int)
@@ -44,6 +46,8 @@ decodeRequest _ = Left "Expected Array with first element BulkString as command 
 
 decodeInner :: BS.ByteString -> [RedisValue] -> Either Text Request
 decodeInner "PING" [] = Right Ping
+decodeInner "INFO" _ = Right Info
+decodeInner "CONFIG" _ = Right Config
 decodeInner "ECHO" [BulkString msg] = Right $ Echo msg
 decodeInner "GET" [BulkString key] = Right $ Get key
 decodeInner "TYPE" [BulkString key] = Right $ Type key
