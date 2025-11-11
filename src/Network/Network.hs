@@ -13,6 +13,7 @@ import Data.Request
 import Data.Response
 import qualified Data.Text.IO as TIO
 import Logic.CommandHandler
+import Network.ClientState (ClientState (ClientState), initState)
 import Network.Socket
 import Network.Socket.ByteString (recv, sendAll)
 import Storage.Storage
@@ -51,10 +52,12 @@ runServer store = do
       pure ()
 
 handleClient :: Socket -> Storage -> IO ()
-handleClient sock store = loop BS.empty
+handleClient sock store = do
+  clientState <- newIORef initState
+  loop BS.empty clientState
   where
-    loop :: BS.ByteString -> IO ()
-    loop buffer = do
+    loop :: BS.ByteString -> IORef ClientState -> IO ()
+    loop buffer clientState = do
       result <- parseWith (recv sock 512) parseRedisValue buffer
       case result of
         Fail _ _ err
@@ -63,13 +66,13 @@ handleClient sock store = loop BS.empty
               sendAll sock (encode $ ErrorString $ "parse error: " <> show err)
               TIO.hPutStrLn stderr $ "parse failed; error: " <> show err
         Done rest value -> do
-          resp <- executeCommand store (decodeRequest value)
+          resp <- executeCommand store clientState (decodeRequest value)
           sendAll sock resp
-          loop rest
+          loop rest clientState
         _ -> TIO.hPutStrLn stderr "unexpected state"
 
-executeCommand :: Storage -> Either Text Request -> IO BS.ByteString
-executeCommand _ (Left err) = pure $ encode $ ErrorString $ show err
-executeCommand store (Right req) = do
-  response <- handleCommand store req
+executeCommand :: Storage -> IORef ClientState -> Either Text Request -> IO BS.ByteString
+executeCommand _ _ (Left err) = pure $ encode $ ErrorString $ show err
+executeCommand store clientState (Right req) = do
+  response <- handleTx store clientState req
   pure $ encode $ encodeResponse response

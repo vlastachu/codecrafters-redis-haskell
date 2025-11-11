@@ -3,8 +3,27 @@ module Logic.CommandHandler where
 import Data.Protocol.Types (RedisValue (NilString))
 import Data.Request
 import Data.Response
+import Network.ClientState
 import qualified Storage.Entry as SE
 import Storage.Storage
+
+handleTx :: Storage -> IORef ClientState -> Request -> IO Response
+handleTx _ clientStateRef Multi = do
+  startTx clientStateRef
+  pure OK
+handleTx store clientStateRef Exec = do
+  finishTx clientStateRef
+  clientState <- readIORef clientStateRef
+  forM_ (txs clientState) $
+    \tx -> handleCommand store tx
+  pure OK
+handleTx store clientStateRef other = do
+  clientState <- readIORef clientStateRef
+  if isTxReceiving clientState
+    then do
+      addTxRequestIO clientStateRef other
+      pure OK
+    else handleCommand store other
 
 handleCommand :: Storage -> Request -> IO Response
 handleCommand _ Ping = pure Pong
@@ -60,8 +79,8 @@ handleCommand store (Incr key) = do
   mVal <- incValue store key
   let error = Error "ERR value is not an integer or out of range"
   pure $ maybe error RawInteger mVal
-handleCommand store Multi = do
-  pure OK
+handleCommand store Multi = pure OK
+handleCommand store Exec = pure OK
 
 formatKeyValue :: (ByteString, ByteString) -> [Response]
 formatKeyValue (key', value) = [RawString key', RawString value]
