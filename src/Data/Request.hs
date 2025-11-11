@@ -88,7 +88,7 @@ decodeInner "XREAD" (_ : keysIds) = do
 ----------------TRANSACTIONS----
 decodeInner "INCR" [BulkString key] = Right $ Incr key
 decodeInner "MULTI" [] = Right Multi
-decodeInner "Exec" [] = Right Exec
+decodeInner "EXEC" [] = Right Exec
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
 read :: forall a. (Read a) => ByteString -> Either Text a
