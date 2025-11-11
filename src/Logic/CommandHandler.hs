@@ -12,7 +12,7 @@ handleTx :: Storage -> IORef ClientState -> Request -> IO Response
 handleTx _ clientStateRef Multi = do
   startTx clientStateRef
   pure OK
-handleTx _ clientStateRef Disgard = do
+handleTx _ clientStateRef Discard = do
   finishTx clientStateRef
   pure OK
 handleTx store clientStateRef Exec = do

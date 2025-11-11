@@ -29,7 +29,7 @@ data Request
     Incr ByteString
   | Multi
   | Exec
-  | Disgard
+  | Discard
   deriving (Show, Eq)
 
 data StreamEntryKey
@@ -90,7 +90,7 @@ decodeInner "XREAD" (_ : keysIds) = do
 decodeInner "INCR" [BulkString key] = Right $ Incr key
 decodeInner "MULTI" [] = Right Multi
 decodeInner "EXEC" [] = Right Exec
-decodeInner "DISGARD" [] = Right Disgard
+decodeInner "DISCARD" [] = Right Discard
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
 read :: forall a. (Read a) => ByteString -> Either Text a
