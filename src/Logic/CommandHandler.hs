@@ -1,5 +1,6 @@
 module Logic.CommandHandler where
 
+import qualified Data.ByteString.Char8 as BS
 import Data.Protocol.Types (RedisValue (NilString))
 import Data.Request
 import Data.Response
@@ -16,7 +17,6 @@ handleTx store clientStateRef Exec = do
   if isTxReceiving clientState
     then do
       finishTx clientStateRef
-      clientState <- readIORef clientStateRef
       results <- forM (reverse $ txs clientState) $
         \tx -> handleCommand store tx
       pure $ RawArray results
