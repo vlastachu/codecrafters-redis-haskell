@@ -26,7 +26,7 @@ handleTx store clientStateRef other = do
   if isTxReceiving clientState
     then do
       addTxRequestIO clientStateRef other
-      pure OK
+      pure $ RawSimpleString "QUEUED"
     else handleCommand store other
 
 handleCommand :: Storage -> Request -> IO Response
