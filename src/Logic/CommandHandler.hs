@@ -1,24 +1,22 @@
 module Logic.CommandHandler where
 
-import qualified Data.ByteString.Char8 as BS
-import Data.Protocol.Types (RedisValue (NilString))
+import Data.Protocol.Types (RedisValue (..))
 import Data.Request
-import Data.Response
 import Network.ClientState
 import qualified Storage.Entry as SE
 import Storage.Storage
 
-handleTx :: Storage -> IORef ClientState -> Request -> IO Response
+handleTx :: Storage -> IORef ClientState -> Request -> IO RedisValue
 handleTx _ clientStateRef Multi = do
   startTx clientStateRef
-  pure OK
+  ok
 handleTx _ clientStateRef Discard = do
   clientState <- readIORef clientStateRef
   if isTxReceiving clientState
     then do
       finishTx clientStateRef
-      pure OK
-    else pure $ Error "ERR DISCARD without MULTI"
+      ok
+    else pure $ ErrorString "ERR DISCARD without MULTI"
 handleTx store clientStateRef Exec = do
   clientState <- readIORef clientStateRef
   if isTxReceiving clientState
@@ -26,75 +24,79 @@ handleTx store clientStateRef Exec = do
       finishTx clientStateRef
       results <- forM (reverse $ txs clientState) $
         \tx -> handleCommand store tx
-      pure $ RawArray results
-    else pure $ Error "ERR EXEC without MULTI"
+      pure $ Array results
+    else pure $ ErrorString "ERR EXEC without MULTI"
 handleTx store clientStateRef other = do
   clientState <- readIORef clientStateRef
   if isTxReceiving clientState
     then do
       addTxRequestIO clientStateRef other
-      pure $ RawSimpleString "QUEUED"
+      pure $ BulkString "QUEUED"
     else handleCommand store other
 
-handleCommand :: Storage -> Request -> IO Response
-handleCommand _ Ping = pure Pong
-handleCommand _ (Echo str) = pure $ RawString str
+handleCommand :: Storage -> Request -> IO RedisValue
+handleCommand _ Ping = pure $ SimpleString "PONG"
+handleCommand _ (Echo str) = pure $ BulkString str
 handleCommand store (Get key) = do
   mVal <- getValue store key
-  pure $ maybe Nil RawString mVal
+  pure $ maybe NilString BulkString mVal
 handleCommand store (Type key) = do
   val <- getType store key
-  pure $ RawSimpleString val
+  pure $ SimpleString val
 handleCommand store (Set key val mExp) = do
   setValue store key val mExp
-  pure OK
+  ok
 handleCommand store (LPush key vals) = do
   len <- lpush store key vals
-  pure $ RawInteger len
+  pure $ Integer len
 handleCommand store (RPush key vals) = do
   len <- rpush store key vals
-  pure $ RawInteger len
+  pure $ Integer len
 handleCommand store (LRange key from to) = do
   range <- getRange store key from to
-  pure $ RawArray $ RawString <$> range
+  pure $ Array $ BulkString <$> range
 handleCommand store (LLen key) = do
   len <- llen store key
-  pure $ RawInteger len
+  pure $ Integer len
 handleCommand store (LPop key len) = do
   range <- lpop store key len
   pure $ case range of
-    [] -> Nil
-    [oneString] -> RawString oneString
-    more -> RawArray $ RawString <$> more
+    [] -> NilString
+    [oneString] -> BulkString oneString
+    more -> Array $ BulkString <$> more
 handleCommand store (BLPop key timeout) = do
   item <- blpop store key timeout
-  pure $ maybe RawNilArray (RawArray . (RawString <$>)) item
+  pure $ maybe NilArray (Array . (BulkString <$>)) item
 handleCommand store (Xadd key entryKey entries) = do
   mTimestamp <- xadd store key entryKey entries
   case mTimestamp of
-    Right timestamp -> pure $ RawString timestamp
-    Left err -> pure $ Error err
+    Right timestamp -> pure $ BulkString timestamp
+    Left err -> pure $ ErrorString err
 handleCommand store (Xrange key from to) = do
   entries <- xrange store key from to
-  pure $ RawArray $ map formatStreamEntry entries
+  pure $ Array $ map formatStreamEntry entries
 handleCommand store (Xread keyIds) = do
   keyEntries <- xread store keyIds
-  let keyEntriesToArray (key, entries) = RawArray [RawString key, RawArray $ formatStreamEntry <$> entries]
-  pure $ RawArray $ keyEntriesToArray <$> keyEntries
+  let keyEntriesToArray (key, entries) = Array [BulkString key, Array $ formatStreamEntry <$> entries]
+  pure $ Array $ keyEntriesToArray <$> keyEntries
 handleCommand store (XreadBlock key mTimeout entryId) = do
   entries <- xreadBlock store key mTimeout entryId
   pure $ case entries of
-    Nothing -> RawNilArray
-    Just e -> RawArray [RawArray [RawString key, RawArray $ formatStreamEntry <$> e]]
+    Nothing -> NilArray
+    Just e -> Array [Array [BulkString key, Array $ formatStreamEntry <$> e]]
 handleCommand store (Incr key) = do
   mVal <- incValue store key
-  let error = Error "ERR value is not an integer or out of range"
-  pure $ maybe error RawInteger mVal
-handleCommand store Multi = pure OK
-handleCommand store Exec = pure OK
+  let err = ErrorString "ERR value is not an integer or out of range"
+  pure $ maybe err Integer mVal
+handleCommand _ Multi = ok
+handleCommand _ Exec = ok
+handleCommand _ Discard = ok
 
-formatKeyValue :: (ByteString, ByteString) -> [Response]
-formatKeyValue (key', value) = [RawString key', RawString value]
+formatKeyValue :: (ByteString, ByteString) -> [RedisValue]
+formatKeyValue (key', value) = [BulkString key', BulkString value]
 
-formatStreamEntry :: SE.StreamEntry -> Response
-formatStreamEntry (SE.StreamEntry entryId keyValues) = RawArray [RawString (show entryId), RawArray $ formatKeyValue =<< keyValues]
+formatStreamEntry :: SE.StreamEntry -> RedisValue
+formatStreamEntry (SE.StreamEntry entryId keyValues) = Array [BulkString (show entryId), Array $ formatKeyValue =<< keyValues]
+
+ok :: IO RedisValue
+ok = pure $ SimpleString "OK"

@@ -10,13 +10,12 @@ import Data.Protocol.Decode
 import Data.Protocol.Encode
 import Data.Protocol.Types
 import Data.Request
-import Data.Response
 import qualified Data.Text.IO as TIO
 import Logic.CommandHandler
-import Network.ClientState (ClientState (ClientState), initState)
 import Network.Socket
 import Network.Socket.ByteString (recv, sendAll)
 import Storage.Storage
+import Network.ClientState
 
 defaultRedisPort :: ServiceName
 defaultRedisPort = "6379"
@@ -75,4 +74,4 @@ executeCommand :: Storage -> IORef ClientState -> Either Text Request -> IO BS.B
 executeCommand _ _ (Left err) = pure $ encode $ ErrorString $ show err
 executeCommand store clientState (Right req) = do
   response <- handleTx store clientState req
-  pure $ encode $ encodeResponse response
+  pure $ encode response
