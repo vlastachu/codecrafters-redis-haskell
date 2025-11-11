@@ -8,6 +8,7 @@ data Response
   | RawNilArray
   | OK
   | Error ByteString
+  | RawSimpleString ByteString
   | RawString ByteString
   | RawInteger Integer
   | RawArray [Response]
@@ -18,6 +19,7 @@ encodeResponse (Error s) = ErrorString s
 encodeResponse Nil = NilString
 encodeResponse RawNilArray = NilArray
 encodeResponse OK = SimpleString "OK"
+encodeResponse (RawSimpleString s) = SimpleString s
 encodeResponse (RawString s) = BulkString s
 encodeResponse (RawInteger i) = Integer i
 encodeResponse (RawArray a) = Array $ encodeResponse <$> a

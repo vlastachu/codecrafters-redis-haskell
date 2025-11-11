@@ -33,7 +33,7 @@ handleCommand store (Get key) = do
   pure $ maybe Nil RawString mVal
 handleCommand store (Type key) = do
   val <- getType store key
-  pure $ RawString val
+  pure $ RawSimpleString val
 handleCommand store (Set key val mExp) = do
   setValue store key val mExp
   pure OK
