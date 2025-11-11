@@ -1,8 +1,8 @@
 module Storage.Entries.Stream where
 
 import Control.Concurrent
+import Control.Concurrent.STM (retry)
 import qualified Control.Exception as E
-import qualified Control.Monad.STM as STM
 import Data.Request (StreamEntryKey (..))
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import qualified StmContainers.Map as SM
@@ -108,25 +108,19 @@ readStream storage (key, from) = do
 
 xreadBlock :: Storage -> ByteString -> Int -> Maybe SE.StreamID -> IO (Maybe [SE.StreamEntry])
 xreadBlock storage key timeout mEntryId = do
-  let timeoutMap = blockedWaiters storage
-  entryId <- case mEntryId of
-    Just i -> pure i
-    Nothing -> do
-      stream <- atomically $ getStream storage key
-      let maybeID = SE.entryID <$> listToMaybe stream
-      pure $ fromMaybe (SE.StreamID 0 0) maybeID
+  cancelFlag <- newTVarIO False
   when (timeout > 0) $ void . forkIO $ do
     threadDelay (timeout * 1000)
-    safeAtomically $ SM.insert True key timeoutMap
+    safeAtomically $ writeTVar cancelFlag True
   defaultAtomically Nothing $ do
-    (_, entries) <- readStream storage (key, entryId)
+    topEntryId <- do
+      stream <- getStream storage key
+      pure $ SE.entryID <$> listToMaybe stream
+    let orFirstEntryId = fromMaybe $ SE.StreamID 0 0
+    let chosenEntryId = orFirstEntryId $ mEntryId <|> topEntryId
+    (_, entries) <- readStream storage (key, chosenEntryId)
     if entries /= []
       then pure (Just entries)
-      else
-        if timeout > 0
-          then do
-            mTimeout <- SM.lookup key timeoutMap
-            case mTimeout of
-              Just True -> pure Nothing
-              _ -> STM.retry
-          else STM.retry
+      else do
+        isCanceled <- readTVar cancelFlag
+        if isCanceled then pure Nothing else retry

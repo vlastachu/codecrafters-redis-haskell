@@ -1,6 +1,7 @@
 module Storage.Entries.Array where
 
 import Control.Concurrent
+import Control.Concurrent.STM (retry)
 import qualified Control.Monad.STM as STM
 import Data.Sequence (ViewL (..), (><))
 import qualified Data.Sequence as Seq
@@ -57,21 +58,16 @@ getRange store key from to = defaultAtomically [] $ do
 
 blpop :: Storage -> ByteString -> Float -> IO (Maybe [ByteString])
 blpop store key timeout = do
-  let timeoutMap = blockedWaiters store
+  cancelFlag <- newTVarIO False
   when (timeout > 0) $ void . forkIO $ do
     threadDelay (round $ timeout * 1000 * 1000)
-    safeAtomically $ SM.insert True key timeoutMap
+    safeAtomically $ writeTVar cancelFlag True
   defaultAtomically Nothing $ do
     array <- getArray store key
     case array of
       (Seq.viewl -> item :< rest) -> do
         setArray store key rest
         pure $ Just [key, item]
-      _ ->
-        if timeout > 0
-          then do
-            mTimeout <- SM.lookup key timeoutMap
-            case mTimeout of
-              Just True -> pure Nothing
-              _ -> STM.retry
-          else STM.retry
+      _ -> do
+        isCanceled <- readTVar cancelFlag
+        if isCanceled then pure Nothing else retry

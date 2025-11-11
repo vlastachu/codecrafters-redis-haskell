@@ -6,9 +6,8 @@ import qualified Control.Exception as E
 import qualified StmContainers.Map as SM
 import qualified Storage.Entry as SE
 
-data Storage = Storage
-  { storeMap :: SM.Map ByteString SE.StorageEntry,
-    blockedWaiters :: SM.Map ByteString Bool
+newtype Storage = Storage
+  { storeMap :: SM.Map ByteString SE.StorageEntry
   }
 
 data AppError
@@ -29,8 +28,7 @@ defaultAtomically def action =
 
 -- | Создать новое хранилище
 newStorage :: IO Storage
-newStorage =
-  Storage <$> SM.newIO <*> SM.newIO
+newStorage = Storage <$> SM.newIO
 
 getType :: Storage -> ByteString -> IO ByteString
 getType store key = defaultAtomically "none" $ do
