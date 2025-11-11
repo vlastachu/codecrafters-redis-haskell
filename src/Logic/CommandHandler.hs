@@ -13,8 +13,12 @@ handleTx _ clientStateRef Multi = do
   startTx clientStateRef
   pure OK
 handleTx _ clientStateRef Discard = do
-  finishTx clientStateRef
-  pure OK
+  clientState <- readIORef clientStateRef
+  if isTxReceiving clientState
+    then do
+      finishTx clientStateRef
+      pure OK
+    else pure $ Error "ERR DISCARD without MULTI"
 handleTx store clientStateRef Exec = do
   clientState <- readIORef clientStateRef
   if isTxReceiving clientState
