@@ -4,7 +4,7 @@ module Network.Network
 where
 
 import Control.Concurrent (forkFinally)
-import Data.Attoparsec.ByteString (IResult (..), parse)
+import Data.Attoparsec.ByteString (IResult (..), parseWith)
 import qualified Data.ByteString.Char8 as BS
 import Data.Protocol.Decode
 import Data.Protocol.Encode
@@ -28,6 +28,7 @@ runServer store = do
   TIO.hPutStrLn stderr $ "Server listening on port " <> show defaultRedisPort
   forever $ do
     (conn, _) <- accept sock
+    -- мешает бенчмаркам
     -- hPutStrLn stderr  $ "Connection from " ++ show peer
     void $ forkFinally (handleClient conn store) (close'' conn)
   where
@@ -49,27 +50,23 @@ runServer store = do
       -- TIO.hPutStrLn stderr $ "Connection" <> show conn <> " closed by exceptio: " <> show someExc
       pure ()
 
--- | Обработка одного клиента
 handleClient :: Socket -> Storage -> IO ()
-handleClient sock store = go BS.empty
+handleClient sock store = loop BS.empty
   where
-    go buffer = do
-      chunk <- recv sock 512
-      if BS.null chunk
-        then pure () -- соединение закрыто
-        else do
-          let input = buffer <> chunk
-          case parse parseRedisValue input of
-            Done rest value -> do
-              resp <- executeCommand store (decodeRequest value)
-              sendAll sock resp
-              go rest
-            Partial _cont -> do
-              -- не хватило данных — ждём следующий кусок, просто оставляем buffer
-              go input
-            Fail _ _ err -> do
+    loop :: BS.ByteString -> IO ()
+    loop buffer = do
+      result <- parseWith (recv sock 512) parseRedisValue buffer
+      case result of
+        Fail _ _ err
+          | err == "not enough input" -> pure () -- EOF
+          | otherwise -> do
               sendAll sock (encode $ ErrorString $ "parse error: " <> show err)
-              TIO.hPutStrLn stderr $ "parse failed: " <> show input <> "; error: " <> show err
+              TIO.hPutStrLn stderr $ "parse failed; error: " <> show err
+        Done rest value -> do
+          resp <- executeCommand store (decodeRequest value)
+          sendAll sock resp
+          loop rest
+        _ -> TIO.hPutStrLn stderr "unexpected state"
 
 executeCommand :: Storage -> Either Text Request -> IO BS.ByteString
 executeCommand _ (Left err) = pure $ encode $ ErrorString $ show err
