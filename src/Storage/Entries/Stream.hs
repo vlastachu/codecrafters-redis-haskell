@@ -8,6 +8,8 @@ import Data.Time.Clock.POSIX (getPOSIXTime)
 import qualified StmContainers.Map as SM
 import Storage.Definition
 import qualified Storage.Entry as SE
+import Logic.TxStep (TxStep, txStepFromA)
+import Data.Protocol.Types (RedisValue(ErrorString))
 
 -- | Добавить запись в поток.
 -- Принимает готовый timestamp (в миллисекундах) и список полей.
@@ -40,8 +42,8 @@ getStream store key = do
     Nothing -> pure mempty
     value -> throwSTM (TypeMismatch $ "Expected stream, but got: " <> show value)
 
-xadd :: Storage -> ByteString -> StreamEntryKey -> [(ByteString, ByteString)] -> IO (Either ByteString ByteString)
-xadd _ _ (Explicit x y) _ | (x, y) <= (0, 0) = pure $ Left "ERR The ID specified in XADD must be greater than 0-0"
+xadd :: Storage -> ByteString -> StreamEntryKey -> [(ByteString, ByteString)] -> TxStep
+xadd _ _ (Explicit x y) _ | (x, y) <= (0, 0) = txStepFromA $ ErrorString "ERR The ID specified in XADD must be greater than 0-0"
 xadd store key entryKey entries = do
   timestamp <- if entryKey == Autogenerate then getTimestampMs else pure 0
   let runStm = do

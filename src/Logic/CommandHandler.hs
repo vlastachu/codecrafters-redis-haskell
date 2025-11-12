@@ -50,44 +50,29 @@ handleCommand _ (Echo str) = txStepFromA $ BulkString str
 handleCommand store (Get key) = txStepFromSTM $ getValue store key
 handleCommand store (Type key) = txStepFromSTM $ getType store key
 handleCommand store (Set key val mExp) = setValue store key val mExp
--- handleCommand store (LPush key vals) = do
---   len <- lpush store key vals
---   pure $ Integer len
--- handleCommand store (RPush key vals) = do
---   len <- rpush store key vals
---   pure $ Integer len
--- handleCommand store (LRange key from to) = do
---   range <- getRange store key from to
---   pure $ Array $ BulkString <$> range
--- handleCommand store (LLen key) = do
---   len <- llen store key
---   pure $ Integer len
--- handleCommand store (LPop key len) = do
---   range <- lpop store key len
---   pure $ case range of
---     [] -> NilString
---     [oneString] -> BulkString oneString
---     more -> Array $ BulkString <$> more
--- handleCommand store (BLPop key timeout) = do
---   item <- blpop store key timeout
---   pure $ maybe NilArray (Array . (BulkString <$>)) item
--- handleCommand store (Xadd key entryKey entries) = do
---   mTimestamp <- xadd store key entryKey entries
---   case mTimestamp of
---     Right timestamp -> pure $ BulkString timestamp
---     Left err -> pure $ ErrorString err
--- handleCommand store (Xrange key from to) = do
---   entries <- xrange store key from to
---   pure $ Array $ map formatStreamEntry entries
--- handleCommand store (Xread keyIds) = do
---   keyEntries <- xread store keyIds
---   let keyEntriesToArray (key, entries) = Array [BulkString key, Array $ formatStreamEntry <$> entries]
---   pure $ Array $ keyEntriesToArray <$> keyEntries
--- handleCommand store (XreadBlock key mTimeout entryId) = do
---   entries <- xreadBlock store key mTimeout entryId
---   pure $ case entries of
---     Nothing -> NilArray
---     Just e -> Array [Array [BulkString key, Array $ formatStreamEntry <$> e]]
+handleCommand store (LPush key vals) = txStepFromSTM $ lpush store key vals
+handleCommand store (RPush key vals) = txStepFromSTM $ rpush store key vals
+handleCommand store (LRange key from to) = txStepFromSTM $ getRange store key from to
+handleCommand store (LLen key) = txStepFromSTM $ llen store key
+handleCommand store (LPop key len) = txStepFromSTM $ lpop store key len
+handleCommand store (BLPop key timeout) = blpop store key timeout
+handleCommand store (Xadd key entryKey entries) = do
+  mTimestamp <- xadd store key entryKey entries
+  case mTimestamp of
+    Right timestamp -> pure $ BulkString timestamp
+    Left err -> pure $ ErrorString err
+handleCommand store (Xrange key from to) = do
+  entries <- xrange store key from to
+  pure $ Array $ map formatStreamEntry entries
+handleCommand store (Xread keyIds) = do
+  keyEntries <- xread store keyIds
+  let keyEntriesToArray (key, entries) = Array [BulkString key, Array $ formatStreamEntry <$> entries]
+  pure $ Array $ keyEntriesToArray <$> keyEntries
+handleCommand store (XreadBlock key mTimeout entryId) = do
+  entries <- xreadBlock store key mTimeout entryId
+  pure $ case entries of
+    Nothing -> NilArray
+    Just e -> Array [Array [BulkString key, Array $ formatStreamEntry <$> e]]
 handleCommand store (Incr key) = txStepFromSTM $ incValue store key
 handleCommand _ Multi = ok
 handleCommand _ Exec = ok

@@ -53,11 +53,11 @@ runServer store = do
 handleClient :: Socket -> Storage -> IO ()
 handleClient sock store = do
   clientState <- newIORef initState
-  loop BS.empty clientState
+  loop "" clientState
   where
     loop :: BS.ByteString -> IORef ClientState -> IO ()
     loop buffer clientState = do
-      result <- parseWith (recv sock 512) parseRedisValue buffer
+      result <- parseWith (recv sock 4096) parseRedisValue buffer
       case result of
         Fail _ _ err
           | err == "not enough input" -> pure () -- EOF
