@@ -35,7 +35,7 @@ handleTx store clientStateRef other = do
   if isTxReceiving clientState
     then do
       addTxRequestIO clientStateRef other
-      pure $ BulkString "QUEUED"
+      pure $ SimpleString "QUEUED"
     else do
       (finalizer, stmAction) <- handleCommand store other
       response <- atomically stmAction
