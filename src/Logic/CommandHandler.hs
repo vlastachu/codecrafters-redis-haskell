@@ -26,8 +26,8 @@ handleTx store clientStateRef Exec = do
       steps <- forM (reverse $ txs clientState) $
         \tx -> handleCommand store tx
       let (finalizers, stms) = unzip steps
-      results <- atomically $ sequence stms
       sequence_ finalizers
+      results <- atomically $ sequence stms
       pure $ Array results
     else pure $ ErrorString "ERR EXEC without MULTI"
 handleTx store clientStateRef other = do
@@ -38,9 +38,8 @@ handleTx store clientStateRef other = do
       pure $ SimpleString "QUEUED"
     else do
       (finalizer, stmAction) <- handleCommand store other
-      response <- atomically stmAction
       finalizer
-      pure response
+      atomically stmAction
 
 handleCommand :: Storage -> Request -> TxStep
 handleCommand _ Ping = txStepFromA $ SimpleString "PONG"

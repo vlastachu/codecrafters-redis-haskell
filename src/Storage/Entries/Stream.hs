@@ -124,8 +124,12 @@ xreadBlock storage key timeout mEntryId = do
       let maybeID = SE.entryID <$> listToMaybe stream
       pure $ fromMaybe (SE.StreamID 0 0) maybeID
   let format e = Array [Array [BulkString key, Array $ formatStreamEntry <$> e]]
+  putStrLn "HUY HUY"
+  print timeout
   let ioAction = when (timeout > 0) $ void . forkIO $ do
+        putStrLn "HEY HEY"
         threadDelay (timeout * 1000)
+        putStrLn "HE HE"
         safeAtomically $ writeTVar cancelFlag True
   let stmAction = do
         (_, entries) <- readStream storage (key, chosenEntryId)
