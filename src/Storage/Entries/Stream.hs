@@ -3,13 +3,13 @@ module Storage.Entries.Stream where
 import Control.Concurrent
 import Control.Concurrent.STM (retry)
 import qualified Control.Exception as E
+import Data.Protocol.Types (RedisValue (..))
 import Data.Request (StreamEntryKey (..))
 import Data.Time.Clock.POSIX (getPOSIXTime)
+import Logic.TxStep (TxStep, txStepFromA)
 import qualified StmContainers.Map as SM
 import Storage.Definition
 import qualified Storage.Entry as SE
-import Logic.TxStep (TxStep, txStepFromA)
-import Data.Protocol.Types (RedisValue(ErrorString))
 
 -- | Добавить запись в поток.
 -- Принимает готовый timestamp (в миллисекундах) и список полей.
@@ -51,17 +51,12 @@ xadd store key entryKey entries = do
         let maybeLastId = SE.entryID <$> listToMaybe stream
         let mNewId = newStreamId entryKey timestamp maybeLastId
         case mNewId of
-          Nothing | entryKey == Autogenerate -> throwSTM RetryRequest -- бросаем исключение чтобы роллить новый timestamp
-          Nothing | otherwise -> pure $ Left "ERR The ID specified in XADD is equal or smaller than the target stream top item"
-          Just newId | otherwise -> do
+          Nothing -> pure $ ErrorString "ERR The ID specified in XADD is equal or smaller than the target stream top item"
+          Just newId -> do
             let newStream = addStreamEntry newId entries stream
             setStream store key newStream
-            pure $ Right $ show newId
-  atomically runStm `E.catch` \case
-    RetryRequest -> xadd store key entryKey entries -- повторяем для RetryRequest
-    e -> do
-      putStrLn $ "[AppError] " <> show (e :: AppError)
-      pure $ Left $ show e
+            pure $ BulkString $ show newId
+  return (pure (), runStm)
 
 newStreamId :: StreamEntryKey -> Word64 -> Maybe SE.StreamID -> Maybe SE.StreamID
 newStreamId key timestamp mLast = case key of
@@ -87,17 +82,28 @@ newStreamId key timestamp mLast = case key of
         streamId = SE.StreamID ts seqNum
     explicitStreamId ts seqNum Nothing = Just $ SE.StreamID ts seqNum
 
-xrange :: Storage -> ByteString -> SE.StreamID -> SE.StreamID -> IO [SE.StreamEntry]
-xrange storage key from to = defaultAtomically [] $ do
+xrange :: Storage -> ByteString -> SE.StreamID -> SE.StreamID -> STM RedisValue
+xrange storage key from to = do
   stream <- getStream storage key
   pure $
     stream
       & dropWhile (\(SE.StreamEntry entryId _) -> entryId > to)
       & takeWhile (\(SE.StreamEntry entryId _) -> entryId >= from)
       & reverse
+      & map formatStreamEntry
+      & Array
 
-xread :: Storage -> [(ByteString, SE.StreamID)] -> IO [(ByteString, [SE.StreamEntry])]
-xread storage keyIds = defaultAtomically [] $ mapM (readStream storage) keyIds
+formatStreamEntry :: SE.StreamEntry -> RedisValue
+formatStreamEntry (SE.StreamEntry entryId keyValues) = Array [BulkString (show entryId), Array $ formatKeyValue =<< keyValues]
+
+formatKeyValue :: (ByteString, ByteString) -> [RedisValue]
+formatKeyValue (key', value) = [BulkString key', BulkString value]
+
+xread :: Storage -> [(ByteString, SE.StreamID)] -> STM RedisValue
+xread storage keyIds = do
+  let keyEntriesToArray (key, entries) = Array [BulkString key, Array $ formatStreamEntry <$> entries]
+  entries <- mapM (readStream storage) keyIds
+  pure $ Array $ keyEntriesToArray <$> entries
 
 readStream :: Storage -> (ByteString, SE.StreamID) -> STM (ByteString, [SE.StreamEntry])
 readStream storage (key, from) = do
@@ -108,7 +114,7 @@ readStream storage (key, from) = do
           & reverse
   pure (key, streamTail)
 
-xreadBlock :: Storage -> ByteString -> Int -> Maybe SE.StreamID -> IO (Maybe [SE.StreamEntry])
+xreadBlock :: Storage -> ByteString -> Int -> Maybe SE.StreamID -> TxStep
 xreadBlock storage key timeout mEntryId = do
   cancelFlag <- newTVarIO False
   chosenEntryId <- case mEntryId of
@@ -117,13 +123,15 @@ xreadBlock storage key timeout mEntryId = do
       stream <- atomically $ getStream storage key
       let maybeID = SE.entryID <$> listToMaybe stream
       pure $ fromMaybe (SE.StreamID 0 0) maybeID
-  when (timeout > 0) $ void . forkIO $ do
-    threadDelay (timeout * 1000)
-    safeAtomically $ writeTVar cancelFlag True
-  defaultAtomically Nothing $ do
-    (_, entries) <- readStream storage (key, chosenEntryId)
-    if entries /= []
-      then pure (Just entries)
-      else do
-        isCanceled <- readTVar cancelFlag
-        if isCanceled then pure Nothing else retry
+  let format e = Array [Array [BulkString key, Array $ formatStreamEntry <$> e]]
+  let ioAction = when (timeout > 0) $ void . forkIO $ do
+        threadDelay (timeout * 1000)
+        safeAtomically $ writeTVar cancelFlag True
+  let stmAction = do
+        (_, entries) <- readStream storage (key, chosenEntryId)
+        if entries /= []
+          then pure (format entries)
+          else do
+            isCanceled <- readTVar cancelFlag
+            if isCanceled then pure NilArray else retry
+  pure (ioAction, stmAction)

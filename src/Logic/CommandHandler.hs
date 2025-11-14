@@ -2,10 +2,10 @@ module Logic.CommandHandler where
 
 import Data.Protocol.Types (RedisValue (..))
 import Data.Request
+import Logic.TxStep
 import Network.ClientState
 import qualified Storage.Entry as SE
 import Storage.Storage
-import Logic.TxStep
 
 handleTx :: Storage -> IORef ClientState -> Request -> IO RedisValue
 handleTx _ clientStateRef Multi = do
@@ -42,8 +42,6 @@ handleTx store clientStateRef other = do
       finalizer
       pure response
 
-
-
 handleCommand :: Storage -> Request -> TxStep
 handleCommand _ Ping = txStepFromA $ SimpleString "PONG"
 handleCommand _ (Echo str) = txStepFromA $ BulkString str
@@ -56,35 +54,16 @@ handleCommand store (LRange key from to) = txStepFromSTM $ getRange store key fr
 handleCommand store (LLen key) = txStepFromSTM $ llen store key
 handleCommand store (LPop key len) = txStepFromSTM $ lpop store key len
 handleCommand store (BLPop key timeout) = blpop store key timeout
-handleCommand store (Xadd key entryKey entries) = do
-  mTimestamp <- xadd store key entryKey entries
-  case mTimestamp of
-    Right timestamp -> pure $ BulkString timestamp
-    Left err -> pure $ ErrorString err
-handleCommand store (Xrange key from to) = do
-  entries <- xrange store key from to
-  pure $ Array $ map formatStreamEntry entries
-handleCommand store (Xread keyIds) = do
-  keyEntries <- xread store keyIds
-  let keyEntriesToArray (key, entries) = Array [BulkString key, Array $ formatStreamEntry <$> entries]
-  pure $ Array $ keyEntriesToArray <$> keyEntries
-handleCommand store (XreadBlock key mTimeout entryId) = do
-  entries <- xreadBlock store key mTimeout entryId
-  pure $ case entries of
-    Nothing -> NilArray
-    Just e -> Array [Array [BulkString key, Array $ formatStreamEntry <$> e]]
+handleCommand store (Xadd key entryKey entries) = xadd store key entryKey entries
+handleCommand store (Xrange key from to) = txStepFromSTM $ xrange store key from to
+handleCommand store (Xread keyIds) = txStepFromSTM $ xread store keyIds
+handleCommand store (XreadBlock key mTimeout entryId) = xreadBlock store key mTimeout entryId
 handleCommand store (Incr key) = txStepFromSTM $ incValue store key
 handleCommand _ Multi = ok
 handleCommand _ Exec = ok
 handleCommand _ Discard = ok
 handleCommand _ Info = txStepFromA $ BulkString "redis_version:0.1.0\r\n"
 handleCommand _ Config = txStepFromA $ Array [BulkString "databases", BulkString "16"]
-
-formatKeyValue :: (ByteString, ByteString) -> [RedisValue]
-formatKeyValue (key', value) = [BulkString key', BulkString value]
-
-formatStreamEntry :: SE.StreamEntry -> RedisValue
-formatStreamEntry (SE.StreamEntry entryId keyValues) = Array [BulkString (show entryId), Array $ formatKeyValue =<< keyValues]
 
 ok :: TxStep
 ok = txStepFromA $ SimpleString "OK"
