@@ -17,15 +17,12 @@ import Network.Socket.ByteString (recv, sendAll)
 import Storage.Storage
 import Network.ClientState
 
-defaultRedisPort :: ServiceName
-defaultRedisPort = "6379"
-
 -- | Запуск TCP-сервера
-runServer :: Storage -> IO ()
-runServer store = do
+runServer :: ServiceName -> Storage -> IO ()
+runServer port store = do
   addr <- resolve
   sock <- open addr
-  TIO.hPutStrLn stderr $ "Server listening on port " <> show defaultRedisPort
+  TIO.hPutStrLn stderr $ "Server listening on port " <> show port
   forever $ do
     (conn, _) <- accept sock
     -- мешает бенчмаркам
@@ -34,7 +31,7 @@ runServer store = do
   where
     resolve = do
       let hints = defaultHints {addrFlags = [AI_PASSIVE], addrSocketType = Stream}
-      addr : _ <- getAddrInfo (Just hints) Nothing (Just defaultRedisPort)
+      addr : _ <- getAddrInfo (Just hints) Nothing (Just port)
       pure addr
 
     open addr = do
