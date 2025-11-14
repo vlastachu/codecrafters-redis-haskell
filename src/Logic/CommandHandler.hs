@@ -61,7 +61,7 @@ handleCommand store (Incr key) = txStepFromSTM $ incValue store key
 handleCommand _ Multi = ok
 handleCommand _ Exec = ok
 handleCommand _ Discard = ok
-handleCommand _ Info = txStepFromA $ BulkString "redis_version:0.1.0\r\n"
+handleCommand _ Info = txStepFromA $ BulkString "role:master"
 handleCommand _ Config = txStepFromA $ Array [BulkString "databases", BulkString "16"]
 
 ok :: TxStep
