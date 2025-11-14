@@ -24,11 +24,13 @@ readArgs =
           )
         <*> strOption
           ( long "replicaof"
+              <> showDefault
+              <> value ""
               <> help "write adress of master instance like: localhost 6380"
           )
     )
     ( fullDesc
-        <> progDesc "world's fastest in-memory database"
+        <> progDesc "Redis - world's fastest in-memory database"
         <> header "Redis - an open-source, in-memory data structure store used as a database, cache, and message broker"
     )
 
