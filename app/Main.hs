@@ -4,28 +4,37 @@
 module Main (main) where
 
 import Network.Network
+import Network.Simple.TCP
+import Options.Applicative
 import Storage.Storage
 
 defaultRedisPort :: ServiceName
 defaultRedisPort = "6379"
 
-getArgByName :: String -> [String] -> Maybe String
-getArgByName _ [] = Nothing
-getArgByName _ [_] = Nothing
-getArgByName name (name: arg: rest) = Just arg
-getArgByName name (_: rest) = getArgByName name rest
+newtype AppArgs = AppArgs {port :: ServiceName}
 
-
-readPort :: IO ServiceName
-readPort = do
-  args <- getArgs
-  let port = fromMaybe defaultRedisPort $ getArgByName "--port"
-  pure port
+readArgs :: ParserInfo AppArgs
+readArgs =
+  info
+    ( AppArgs
+        <$> strOption
+          ( long "port"
+              <> short 'p'
+              <> showDefault
+              <> value "6379"
+              <> help "port"
+          )
+    )
+    ( fullDesc
+        <> progDesc "world's fastest in-memory database"
+        <> header "Redis - an open-source, in-memory data structure store used as a database, cache, and message broker"
+    )
 
 main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
   hSetBuffering stderr NoBuffering
-  port <- readPort
+  args <- execParser readArgs
+  let port' = port args
   storage <- newStorage
-  runServer port defaultRedisPort storage
+  runServer port' storage
