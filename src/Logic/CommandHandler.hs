@@ -61,7 +61,7 @@ handleCommand store (Incr key) = txStepFromSTM $ incValue store key
 handleCommand _ Multi = ok
 handleCommand _ Exec = ok
 handleCommand _ Discard = ok
-handleCommand _ Info = txStepFromA $ BulkString "role:master"
+handleCommand store Info = txStepFromA $ BulkString $ if null $ replicaOf store then "role:master" else "role:slave"
 handleCommand _ Config = txStepFromA $ Array [BulkString "databases", BulkString "16"]
 
 ok :: TxStep

@@ -3,12 +3,13 @@
 module Storage.Definition where
 
 import qualified Control.Exception as E
+import Data.Protocol.Types (RedisValue (SimpleString))
 import qualified StmContainers.Map as SM
 import qualified Storage.Entry as SE
-import Data.Protocol.Types (RedisValue (SimpleString))
 
-newtype Storage = Storage
-  { storeMap :: SM.Map ByteString SE.StorageEntry
+data Storage = Storage
+  { replicaOf :: String,
+    storeMap :: SM.Map ByteString SE.StorageEntry
   }
 
 data AppError
@@ -28,14 +29,15 @@ defaultAtomically def action =
       pure def
 
 -- | Создать новое хранилище
-newStorage :: IO Storage
-newStorage = Storage <$> SM.newIO
+newStorage :: String -> IO Storage
+newStorage replica = Storage replica <$> SM.newIO
 
 getType :: Storage -> ByteString -> STM RedisValue
-getType store key = SimpleString <$> do
-  mVal <- SM.lookup key (storeMap store)
-  pure $ case mVal of
-    Just (SE.Array _) -> "array"
-    Just (SE.String _) -> "string"
-    Just (SE.Stream _) -> "stream"
-    _ -> "none"
+getType store key =
+  SimpleString <$> do
+    mVal <- SM.lookup key (storeMap store)
+    pure $ case mVal of
+      Just (SE.Array _) -> "array"
+      Just (SE.String _) -> "string"
+      Just (SE.Stream _) -> "stream"
+      _ -> "none"

@@ -1,5 +1,6 @@
 module Network.Network
   ( runServer,
+    AppArgs (..),
   )
 where
 
@@ -12,17 +13,19 @@ import Data.Protocol.Types
 import Data.Request
 import qualified Data.Text.IO as TIO
 import Logic.CommandHandler
+import Network.ClientState
 import Network.Socket
 import Network.Socket.ByteString (recv, sendAll)
 import Storage.Storage
-import Network.ClientState
+
+data AppArgs = AppArgs {port :: ServiceName, replicaof :: String}
 
 -- | Запуск TCP-сервера
-runServer :: ServiceName -> Storage -> IO ()
-runServer port store = do
+runServer :: AppArgs -> Storage -> IO ()
+runServer args store = do
   addr <- resolve
   sock <- open addr
-  TIO.hPutStrLn stderr $ "Server listening on port " <> show port
+  TIO.hPutStrLn stderr $ "Server listening on port " <> show (port args)
   forever $ do
     (conn, _) <- accept sock
     -- мешает бенчмаркам
@@ -31,7 +34,7 @@ runServer port store = do
   where
     resolve = do
       let hints = defaultHints {addrFlags = [AI_PASSIVE], addrSocketType = Stream}
-      addr : _ <- getAddrInfo (Just hints) Nothing (Just port)
+      addr : _ <- getAddrInfo (Just hints) Nothing (Just (port args))
       pure addr
 
     open addr = do

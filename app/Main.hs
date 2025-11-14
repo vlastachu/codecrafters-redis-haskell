@@ -11,8 +11,6 @@ import Storage.Storage
 defaultRedisPort :: ServiceName
 defaultRedisPort = "6379"
 
-newtype AppArgs = AppArgs {port :: ServiceName}
-
 readArgs :: ParserInfo AppArgs
 readArgs =
   info
@@ -23,6 +21,10 @@ readArgs =
               <> showDefault
               <> value "6379"
               <> help "port"
+          )
+        <*> strOption
+          ( long "replicaof"
+              <> help "write adress of master instance like: localhost 6380"
           )
     )
     ( fullDesc
@@ -35,6 +37,5 @@ main = do
   hSetBuffering stdout NoBuffering
   hSetBuffering stderr NoBuffering
   args <- execParser readArgs
-  let port' = port args
-  storage <- newStorage
-  runServer port' storage
+  storage <- newStorage (replicaof args)
+  runServer args storage
