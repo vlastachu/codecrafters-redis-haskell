@@ -5,6 +5,7 @@ module Storage.Definition where
 import qualified Control.Exception as E
 import qualified StmContainers.Map as SM
 import qualified Storage.Entry as SE
+import Data.Protocol.Types (RedisValue (SimpleString))
 
 newtype Storage = Storage
   { storeMap :: SM.Map ByteString SE.StorageEntry
@@ -30,8 +31,8 @@ defaultAtomically def action =
 newStorage :: IO Storage
 newStorage = Storage <$> SM.newIO
 
-getType :: Storage -> ByteString -> IO ByteString
-getType store key = defaultAtomically "none" $ do
+getType :: Storage -> ByteString -> STM RedisValue
+getType store key = SimpleString <$> do
   mVal <- SM.lookup key (storeMap store)
   pure $ case mVal of
     Just (SE.Array _) -> "array"
