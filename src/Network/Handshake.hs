@@ -10,8 +10,10 @@ import Network.Socket.ByteString (sendAll)
 splitHostPort :: Text -> (String, String)
 splitHostPort s =
   case words s of
-    [h, p] -> (show h, show p)
+    [h, p] -> (strip $ show h, strip $ show p)
     _ -> error $ "Invalid address: " <> s
+  where
+    strip = filter (/= '"')
 
 checkHandshake :: AppArgs -> IO ()
 checkHandshake (AppArgs _ "") = pure ()
