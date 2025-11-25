@@ -2,9 +2,9 @@ module Logic.CommandHandler where
 
 import Data.Protocol.Types (RedisValue (..))
 import Data.Request
+import qualified Data.Text as T
 import Logic.TxStep
 import Network.ClientState
-import qualified Storage.Entry as SE
 import Storage.Storage
 
 handleTx :: Storage -> IORef ClientState -> Request -> IO RedisValue
@@ -61,7 +61,7 @@ handleCommand store (Incr key) = txStepFromSTM $ incValue store key
 handleCommand _ Multi = ok
 handleCommand _ Exec = ok
 handleCommand _ Discard = ok
-handleCommand store Info = txStepFromA $ BulkString $ if null $ replicaOf store then "role:master\r\nmaster_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb\r\nmaster_repl_offset:0" else "role:slave"
+handleCommand store Info = txStepFromA $ BulkString $ if T.null $ replicaOf store then "role:master\r\nmaster_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb\r\nmaster_repl_offset:0" else "role:slave"
 handleCommand _ Config = txStepFromA $ Array [BulkString "databases", BulkString "16"]
 
 ok :: TxStep

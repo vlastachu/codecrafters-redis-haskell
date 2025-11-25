@@ -8,7 +8,7 @@ import qualified StmContainers.Map as SM
 import qualified Storage.Entry as SE
 
 data Storage = Storage
-  { replicaOf :: String,
+  { replicaOf :: Text,
     storeMap :: SM.Map ByteString SE.StorageEntry
   }
 
@@ -29,7 +29,7 @@ defaultAtomically def action =
       pure def
 
 -- | Создать новое хранилище
-newStorage :: String -> IO Storage
+newStorage :: Text -> IO Storage
 newStorage replica = Storage replica <$> SM.newIO
 
 getType :: Storage -> ByteString -> STM RedisValue
