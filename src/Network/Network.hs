@@ -5,6 +5,7 @@ module Network.Network
 where
 
 import Control.Concurrent (forkFinally)
+import Data.AppArgs
 import Data.Attoparsec.ByteString (IResult (..), parseWith)
 import qualified Data.ByteString.Char8 as BS
 import Data.Protocol.Decode
@@ -14,11 +15,10 @@ import Data.Request
 import qualified Data.Text.IO as TIO
 import Logic.CommandHandler
 import Network.ClientState
+import Network.Handshake
 import Network.Socket
 import Network.Socket.ByteString (recv, sendAll)
 import Storage.Storage
-
-data AppArgs = AppArgs {port :: ServiceName, replicaof :: String}
 
 -- | Запуск TCP-сервера
 runServer :: AppArgs -> Storage -> IO ()
@@ -26,6 +26,7 @@ runServer args store = do
   addr <- resolve
   sock <- open addr
   TIO.hPutStrLn stderr $ "Server listening on port " <> show (port args)
+  checkHandshake args
   forever $ do
     (conn, _) <- accept sock
     -- мешает бенчмаркам
