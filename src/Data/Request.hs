@@ -32,6 +32,8 @@ data Request
   | Multi
   | Exec
   | Discard
+  | -- Replication
+    ReplConf ByteString ByteString
   deriving (Show, Eq)
 
 data StreamEntryKey
@@ -95,6 +97,7 @@ decodeInner "INCR" [BulkString key] = Right $ Incr key
 decodeInner "MULTI" [] = Right Multi
 decodeInner "EXEC" [] = Right Exec
 decodeInner "DISCARD" [] = Right Discard
+decodeInner "REPLCONF" [BulkString a, BulkString b] = Right $ ReplConf a b
 decodeInner cmd _ = Left $ "unrecognized command: " <> show cmd
 
 read :: forall a. (Read a) => ByteString -> Either Text a

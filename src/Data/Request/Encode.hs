@@ -55,6 +55,7 @@ toArgs (Incr key) = ["INCR", key]
 toArgs Multi = ["MULTI"]
 toArgs Exec = ["EXEC"]
 toArgs Discard = ["DISCARD"]
+toArgs (ReplConf a b) = ["REPLCONF", a, b]
 
 ----------------------------------------------------
 -- Helpers

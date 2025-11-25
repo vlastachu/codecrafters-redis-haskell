@@ -17,7 +17,7 @@ splitHostPort s =
 
 checkHandshake :: AppArgs -> IO ()
 checkHandshake (AppArgs _ "") = pure ()
-checkHandshake (AppArgs _ address) = do
+checkHandshake (AppArgs ownPort address) = do
   let (host, port) = splitHostPort address
 
   let hints =
@@ -30,3 +30,5 @@ checkHandshake (AppArgs _ address) = do
   connect sock (addrAddress addr)
   let execute = sendAll sock . encode . encodeRequest
   execute Ping
+  execute $ ReplConf "listening-port" (show ownPort)
+  execute $ ReplConf "capa" "psync2"
