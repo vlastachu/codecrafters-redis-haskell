@@ -4,6 +4,7 @@ import Data.AppArgs
 import Data.Protocol.Encode
 import Data.Request (Request (..))
 import Data.Request.Encode
+import Network.Simple.TCP (recv)
 import Network.Socket
 import Network.Socket.ByteString (sendAll)
 
@@ -28,7 +29,10 @@ checkHandshake (AppArgs ownPort address) = do
   addr : _ <- getAddrInfo (Just hints) (Just host) (Just port)
   sock <- socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr)
   connect sock (addrAddress addr)
-  let execute = sendAll sock . encode . encodeRequest
-  execute Ping
-  execute $ ReplConf "listening-port" (show ownPort)
-  execute $ ReplConf "capa" "psync2"
+  let execute cmd = do
+        sendAll sock $ encode $ encodeRequest cmd
+        recv sock 4096
+  _ <- execute Ping
+  _ <- execute $ ReplConf "listening-port" (show ownPort)
+  _ <- execute $ ReplConf "capa" "psync2"
+  pure ()
