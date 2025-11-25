@@ -62,6 +62,7 @@ handleCommand _ Multi = ok
 handleCommand _ Exec = ok
 handleCommand _ Discard = ok
 handleCommand _ (ReplConf _ _) = ok
+handleCommand _ (Psync _ _) = ok
 handleCommand store Info = txStepFromA $ BulkString $ if T.null $ replicaOf store then "role:master\r\nmaster_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb\r\nmaster_repl_offset:0" else "role:slave"
 handleCommand _ Config = txStepFromA $ Array [BulkString "databases", BulkString "16"]
 

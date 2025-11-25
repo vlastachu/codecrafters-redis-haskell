@@ -35,4 +35,5 @@ checkHandshake (AppArgs ownPort address) = do
   _ <- execute Ping
   _ <- execute $ ReplConf "listening-port" (BS.pack ownPort)
   _ <- execute $ ReplConf "capa" "psync2"
+  _ <- execute $ Psync "?" "-1"
   pure ()
